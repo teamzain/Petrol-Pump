@@ -234,8 +234,10 @@ export function OilPurchaseDialog({ open, onOpenChange, onSuccess }: OilPurchase
 
       if (orderError) throw orderError
 
-      for (const item of cart) {
-        await supabase.from("purchases").insert({
+      for (let i = 0; i < cart.length; i++) {
+        const item = cart[i]
+        // 2. Insert Purchase Item
+        const { error: itemError } = await supabase.from("purchases").insert({
           order_id: order.id,
           purchase_date: formData.purchase_date,
           supplier_id: formData.supplier_id,
@@ -249,54 +251,38 @@ export function OilPurchaseDialog({ open, onOpenChange, onSuccess }: OilPurchase
           new_weighted_avg: item.unitPrice
         })
 
-        const newStock = item.product.current_stock + item.quantity
-        await supabase.from("products").update({
-          current_stock: newStock,
-          purchase_price: item.unitPrice,
-          weighted_avg_cost: item.unitPrice,
-          stock_value: newStock * item.unitPrice,
-          last_purchase_price: item.unitPrice,
-          last_purchase_date: formData.purchase_date
-        }).eq("id", item.product.id)
-
-        await supabase.from("stock_movements").insert({
-          product_id: item.product.id,
-          movement_type: "purchase",
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          balance_after: newStock,
-          weighted_avg_after: item.unitPrice,
-          supplier_id: formData.supplier_id,
-          reference_type: "purchase",
-          reference_number: formData.invoice_number,
-          notes: `OIL Inv# ${formData.invoice_number}`
-        })
+        if (itemError) throw new Error(`Item "${item.product.product_name}" failed: ${itemError.message}`)
       }
 
+      // 3. Update Balance & Record Transaction (Financials)
       if (paidAmount > 0 && todayBalance) {
         const newBal = availableBalance - paidAmount
         const updateData = formData.payment_method === "cash" ? { cash_closing: newBal } : { bank_closing: newBal }
-        await supabase.from("daily_balances").update(updateData).eq("id", todayBalance.id)
+        const { error: balError } = await supabase.from("daily_balances").update(updateData).eq("id", todayBalance.id)
+        if (balError) throw balError
 
-        await supabase.from("transactions").insert({
+        const { error: transError } = await supabase.from("transactions").insert({
           transaction_date: new Date().toISOString(),
           transaction_type: "expense",
-          category: "Oil Purchase",
+          category: "Oil/Lubricant Purchase",
           description: `Inv# ${formData.invoice_number}`,
           amount: paidAmount,
           payment_method: formData.payment_method,
           reference_type: "purchase_order",
           reference_id: order.id
         })
+        if (transError) throw transError
       }
 
+      // 4. Update Supplier Totals
       if (formData.supplier_id) {
         const { data: s } = await supabase.from("suppliers").select("total_purchases").eq("id", formData.supplier_id).single()
         if (s) {
-          await supabase.from("suppliers").update({
+          const { error: supError } = await supabase.from("suppliers").update({
             total_purchases: (s.total_purchases || 0) + orderTotal,
             last_purchase_date: formData.purchase_date
           }).eq("id", formData.supplier_id)
+          if (supError) throw supError
         }
       }
 
@@ -488,6 +474,18 @@ export function OilPurchaseDialog({ open, onOpenChange, onSuccess }: OilPurchase
             </div>
 
             <Button onClick={() => { onSuccess(); onOpenChange(false); }} className="mt-8 rounded-full px-12 font-bold uppercase tracking-widest shadow-xl shadow-primary/20">Close Dialog</Button>
+          </div>
+        )}
+        {loading && (
+          <div className="absolute inset-0 z-[50] flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-300 rounded-lg">
+            <div className="relative">
+              <div className="h-20 w-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-xl shadow-primary/10" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Package className="h-8 w-8 text-primary animate-pulse" />
+              </div>
+            </div>
+            <p className="mt-4 font-bold text-lg tracking-tight">Processing Invoice...</p>
+            <p className="text-xs text-muted-foreground animate-pulse">Syncing stock and account balances</p>
           </div>
         )}
       </DialogContent>

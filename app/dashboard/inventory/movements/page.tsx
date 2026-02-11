@@ -37,7 +37,7 @@ interface StockMovement {
   movement_date: string
   movement_type: string
   quantity: number
-  unit_price: number | null
+  previous_stock: number
   balance_after: number
   notes: string | null
   reference_number: string | null
@@ -313,9 +313,12 @@ export default function StockMovementsPage() {
                   </TableRow>
                 ) : (
                   movements.map((m) => {
-                    const isPositive = Number(m.quantity) > 0
-                    const typeLabel = getTypeLabel(m.movement_type)
-                    const prevStock = m.balance_after - m.quantity
+                    const diff = Number(m.balance_after) - Number(m.previous_stock)
+                    const isIncrease = diff > 0
+                    const displayChange = Math.abs(diff)
+
+                    const isPurchase = m.movement_type === "purchase"
+                    const isSale = m.movement_type === "sale"
 
                     return (
                       <TableRow key={m.id}>
@@ -334,20 +337,21 @@ export default function StockMovementsPage() {
                           <div className="text-xs text-muted-foreground">{m.products?.product_type?.replace('_', ' ')}</div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={isPositive ? "secondary" : "outline"} className={isPositive ? "bg-green-100 text-green-800 hover:bg-green-100" : ""}>
+                          <Badge variant={isPurchase ? "secondary" : isSale ? "outline" : "outline"}
+                            className={isPurchase ? "bg-green-100 text-green-800 hover:bg-green-100" : isSale ? "bg-red-50 text-red-700 hover:bg-red-50" : ""}>
                             {m.movement_type}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono">
-                          {prevStock.toLocaleString()}
+                          {Number(m.previous_stock || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="text-right">
-                          <span className={`font-bold ${isPositive ? "text-green-600" : "text-destructive"}`}>
-                            {isPositive ? "+" : ""}{Number(m.quantity).toLocaleString()}
+                          <span className={`font-bold ${isIncrease ? "text-green-600" : "text-destructive"}`}>
+                            {isIncrease ? "+" : "-"}{displayChange.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold">
-                          {Number(m.balance_after).toLocaleString()}
+                          {Number(m.balance_after).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </TableCell>
                         <TableCell className="max-w-[200px]">
                           <div className="truncate text-sm" title={m.notes || ""}>

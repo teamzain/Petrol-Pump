@@ -25,6 +25,12 @@ export default function SettingsPage() {
         phone: ''
     })
 
+    // System Settings State
+    const [systemConfig, setSystemConfig] = useState({
+        id: '',
+        adminPin: ''
+    })
+
     // Password State
     const [passwords, setPasswords] = useState({
         current: '',
@@ -34,7 +40,27 @@ export default function SettingsPage() {
 
     useEffect(() => {
         fetchProfile()
+        fetchSystemConfig()
     }, [])
+
+    const fetchSystemConfig = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('pump_config')
+                .select('id, admin_pin')
+                .limit(1)
+                .maybeSingle()
+
+            if (data) {
+                setSystemConfig({
+                    id: data.id,
+                    adminPin: data.admin_pin || ''
+                })
+            }
+        } catch (error) {
+            console.error('Error loading system config:', error)
+        }
+    }
 
     const fetchProfile = async () => {
         try {
@@ -117,6 +143,35 @@ export default function SettingsPage() {
         }
     }
 
+    const handlePinUpdate = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!systemConfig.adminPin || systemConfig.adminPin.length < 4) {
+            setMessage({ type: 'error', text: 'PIN must be at least 4 digits' })
+            return
+        }
+
+        setLoading(true)
+        setMessage(null)
+
+        try {
+            const { error } = await supabase
+                .from('pump_config')
+                .update({
+                    admin_pin: systemConfig.adminPin,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', systemConfig.id)
+
+            if (error) throw error
+
+            setMessage({ type: 'success', text: 'Admin PIN updated successfully!' })
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Failed to update PIN' })
+        } finally {
+            setLoading(false)
+        }
+    }
+
     return (
         <div className="container max-w-4xl py-6 space-y-8">
             <div>
@@ -134,6 +189,9 @@ export default function SettingsPage() {
                     </TabsTrigger>
                     <TabsTrigger value="security" className="flex items-center gap-2">
                         <Shield className="w-4 h-4" /> Security
+                    </TabsTrigger>
+                    <TabsTrigger value="system" className="flex items-center gap-2">
+                        <Shield className="w-4 h-4" /> System
                     </TabsTrigger>
                     <TabsTrigger value="about" className="flex items-center gap-2">
                         <Info className="w-4 h-4" /> About
@@ -273,6 +331,42 @@ export default function SettingsPage() {
                                 <Button type="submit" disabled={loading || !passwords.new}>
                                     {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Update Password
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
+                </TabsContent>
+
+                {/* System Tab */}
+                <TabsContent value="system">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>System Configuration</CardTitle>
+                            <CardDescription>
+                                Manage system-wide settings and authorization codes.
+                            </CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handlePinUpdate}>
+                            <CardContent className="space-y-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="admin-pin">Admin Unlock PIN</Label>
+                                    <Input
+                                        id="admin-pin"
+                                        type="text"
+                                        maxLength={6}
+                                        value={systemConfig.adminPin}
+                                        onChange={(e) => setSystemConfig({ ...systemConfig, adminPin: e.target.value.replace(/\D/g, '') })}
+                                        placeholder="Enter numeric PIN"
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        This PIN is used to unlock nozzle readings in the Sales page.
+                                    </p>
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button type="submit" disabled={loading || !systemConfig.adminPin}>
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Update PIN
                                 </Button>
                             </CardFooter>
                         </form>

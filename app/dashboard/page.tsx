@@ -205,11 +205,14 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground">Loading dashboard...</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-500">
+        <div className="relative">
+          <div className="h-20 w-20 rounded-full border-4 border-primary/10 border-t-primary animate-spin shadow-2xl shadow-primary/10" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Fuel className="h-8 w-8 text-primary animate-pulse" />
+          </div>
         </div>
+        <p className="mt-6 text-muted-foreground font-medium animate-pulse tracking-wide italic">Preparing your dashboard analytics...</p>
       </div>
     )
   }
@@ -235,7 +238,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Daily Operations Widget */}
-      <DailyOperationsWidget />
+      {/* <DailyOperationsWidget /> */}
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

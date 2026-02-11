@@ -83,6 +83,7 @@ export default function PurchasesPage() {
       .order("purchase_date", { ascending: false })
 
     if (!error && data) {
+      console.log("Fetched Orders:", data)
       setOrders(data as unknown as PurchaseOrder[])
     }
     setLoading(false)

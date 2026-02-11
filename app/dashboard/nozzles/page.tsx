@@ -30,6 +30,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Fuel,
+  Loader2
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -334,8 +335,14 @@ export default function NozzlesPage() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
+              <div className="relative">
+                <div className="h-16 w-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin shadow-lg shadow-primary/5" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Gauge className="h-6 w-6 text-primary animate-pulse" />
+                </div>
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground font-medium animate-pulse">Syncing nozzle configurations...</p>
             </div>
           ) : nozzles.length === 0 ? (
             <div className="flex h-32 flex-col items-center justify-center text-center">
@@ -570,8 +577,8 @@ export default function NozzlesPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Saving..." : selectedNozzle ? "Update Nozzle" : "Add Nozzle"}
+            <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : selectedNozzle ? "Update Nozzle" : "Add Nozzle"}
             </Button>
           </DialogFooter>
         </DialogContent>

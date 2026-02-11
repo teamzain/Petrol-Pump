@@ -203,8 +203,14 @@ export default function SuppliersPage() {
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
+              <div className="relative">
+                <div className="h-16 w-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin shadow-lg shadow-primary/5" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Truck className="h-6 w-6 text-primary animate-pulse" />
+                </div>
+              </div>
+              <p className="mt-4 text-sm text-muted-foreground font-medium animate-pulse">Loading suppliers...</p>
             </div>
           ) : filteredSuppliers.length === 0 ? (
             <div className="text-center py-12">

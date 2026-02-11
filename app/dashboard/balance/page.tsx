@@ -27,7 +27,8 @@ import {
   Save,
   RefreshCw,
   ArrowRightLeft,
-  PlusCircle
+  PlusCircle,
+  Loader2
 } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -673,8 +674,8 @@ export default function BalanceManagementPage() {
             <Button variant="outline" onClick={() => setOpeningDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSetOpeningBalance} disabled={saving}>
-              {saving ? "Saving..." : "Save Opening Balance"}
+            <Button className="w-full" onClick={handleSetOpeningBalance} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Opening Balance"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -714,7 +715,7 @@ export default function BalanceManagementPage() {
               Cancel
             </Button>
             <Button onClick={handleCloseDay} disabled={saving}>
-              {saving ? "Closing..." : "Close Day"}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Close Day"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -779,8 +780,8 @@ export default function BalanceManagementPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setTransactionDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleTransaction} disabled={saving}>
-              {saving ? "Saving..." : "Confirm"}
+            <Button className="w-full" onClick={handleTransaction} disabled={saving}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

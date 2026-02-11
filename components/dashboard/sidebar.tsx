@@ -61,7 +61,6 @@ const navItems: NavItem[] = [
   { title: "Sales", href: "/dashboard/sales", icon: DollarSign },
   { title: "Balance", href: "/dashboard/balance", icon: Wallet },
   { title: "Nozzles", href: "/dashboard/nozzles", icon: Gauge },
-  { title: "Daily Operations", href: "/dashboard/operations", icon: ClipboardList },
   { title: "Expenses", href: "/dashboard/expenses", icon: Calculator },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3 },
   { title: "Users", href: "/dashboard/users", icon: Users },
@@ -82,7 +81,7 @@ export function DashboardSidebar() {
         .from("pump_config")
         .select("pump_name")
         .limit(1)
-      
+
       if (data && data.length > 0 && data[0].pump_name) {
         setPumpName(data[0].pump_name)
       }

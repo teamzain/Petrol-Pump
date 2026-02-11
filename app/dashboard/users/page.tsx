@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table"
 import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
-import { Users, Search, MoreVertical, Shield, ShieldAlert, UserCog } from "lucide-react"
+import { Users, Search, MoreVertical, Shield, ShieldAlert, UserCog, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
     DropdownMenu,
@@ -193,8 +193,16 @@ export default function UsersPage() {
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
-                                            Loading...
+                                        <TableCell colSpan={5} className="h-32">
+                                            <div className="flex flex-col items-center justify-center gap-3">
+                                                <div className="relative">
+                                                    <div className="h-10 w-10 rounded-full border-2 border-primary/10 border-t-primary animate-spin" />
+                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                        <Users className="h-4 w-4 text-primary/40" />
+                                                    </div>
+                                                </div>
+                                                <span className="text-sm text-muted-foreground font-medium animate-pulse">Loading user directory...</span>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ) : filteredUsers.length === 0 ? (
@@ -287,8 +295,8 @@ export default function UsersPage() {
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleUpdateUser} disabled={saving}>
-                            {saving ? "Saving..." : "Update User"}
+                        <Button onClick={handleUpdateUser} disabled={saving} className="min-w-[120px]">
+                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update User"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

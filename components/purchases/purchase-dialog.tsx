@@ -546,6 +546,18 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
             <Button onClick={() => { onSuccess(); onOpenChange(false); }} className="rounded-full px-16 h-12 font-black uppercase tracking-widest bg-foreground text-background hover:bg-foreground/90 transition-all active:scale-95 shadow-2xl">Return to List</Button>
           </div>
         )}
+        {loading && (
+          <div className="absolute inset-0 z-[50] flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-300 rounded-2xl">
+            <div className="relative">
+              <div className="h-24 w-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-2xl shadow-primary/20" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Fuel className="h-10 w-10 text-primary animate-pulse" />
+              </div>
+            </div>
+            <h3 className="mt-6 text-xl font-black tracking-tight">Recording Fuel Bulk...</h3>
+            <p className="text-sm text-muted-foreground animate-pulse font-medium">Updating tanks and accounts</p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   )

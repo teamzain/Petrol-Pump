@@ -8,7 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle2, AlertCircle, User, Shield, Lock } from "lucide-react"
+import {
+    CheckCircle2, AlertCircle, User, Shield, Lock, Save,
+    Loader2
+} from "lucide-react"
 
 export default function ProfilePage() {
     const [loading, setLoading] = useState(true)
@@ -169,8 +172,8 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <Button onClick={handleUpdateProfile} disabled={loading || saving}>
-                                {saving ? "Saving..." : "Update Profile"}
+                            <Button className="min-w-[140px]" onClick={handleUpdateProfile} disabled={saving}>
+                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Profile"}
                             </Button>
                         </div>
                     </CardContent>
