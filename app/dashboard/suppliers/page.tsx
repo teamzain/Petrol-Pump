@@ -40,10 +40,13 @@ type Supplier = {
 }
 
 const supplierTypeLabels: Record<string, string> = {
-  petrol_only: "Petrol Only",
-  diesel_only: "Diesel Only",
+  petrol: "Petrol Only",
+  diesel: "Diesel Only",
+  petrol_only: "Petrol Only", // Legacy support
+  diesel_only: "Diesel Only", // Legacy support
   both_petrol_diesel: "Petrol & Diesel",
   products_oils: "Products & Oils",
+  both_petrol_diesel_and_oils: "Fuel + Oils",
 }
 
 export default function SuppliersPage() {
@@ -259,7 +262,7 @@ export default function SuppliersPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant="outline">
-                          {supplierTypeLabels[supplier.supplier_type]}
+                          {supplierTypeLabels[supplier.supplier_type] || supplier.supplier_type}
                         </Badge>
                       </TableCell>
                       <TableCell>

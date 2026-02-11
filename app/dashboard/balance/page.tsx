@@ -89,7 +89,47 @@ export default function BalanceManagementPage() {
   const fetchBalances = useCallback(async () => {
     setLoading(true)
 
-    // Fetch today's balance
+    // 1. Identify all previous unclosed days and finalized the most recent one for rollover
+    const { data: allPrevBalances } = await supabase
+      .from("daily_balances")
+      .select("*")
+      .lt("balance_date", today)
+      .order("balance_date", { ascending: false })
+
+    let previousClosing = { cash: 0, bank: 0 }
+
+    if (allPrevBalances && allPrevBalances.length > 0) {
+      // The first one in the list is the most recent previous day
+      const lastRecord = allPrevBalances[0]
+      previousClosing = {
+        cash: lastRecord.cash_closing ?? lastRecord.cash_opening ?? 0,
+        bank: lastRecord.bank_closing ?? lastRecord.bank_opening ?? 0
+      }
+
+      // Close all unclosed previous days
+      for (const record of allPrevBalances) {
+        if (!record.is_closed) {
+          console.log(`Attempting to close record for ${record.balance_date}`)
+          const { error: closeError } = await supabase
+            .from("daily_balances")
+            .update({
+              is_closed: true,
+              cash_closing: record.cash_closing ?? record.cash_opening,
+              bank_closing: record.bank_closing ?? record.bank_opening,
+            })
+            .eq("id", record.id)
+
+          if (closeError) {
+            console.error(`Auto-closure failed for ${record.balance_date}:`, closeError)
+            setError(`Failed to close ${record.balance_date}: ${closeError.message}`)
+          } else {
+            console.log(`Successfully closed record for ${record.balance_date}`)
+          }
+        }
+      }
+    }
+
+    // 2. Fetch or Create today's balance
     const { data: todayData } = await supabase
       .from("daily_balances")
       .select("*")
@@ -99,29 +139,26 @@ export default function BalanceManagementPage() {
     if (todayData && todayData.length > 0) {
       setTodayBalance(todayData[0])
     } else {
-      // Check for previous day's closing to set as today's opening
-      const { data: prevBalance } = await supabase
+      // Create new record for today using previous final values
+      console.log("Creating new record for today...")
+      const { data: newBalance, error: createError } = await supabase
         .from("daily_balances")
-        .select("*")
-        .lt("balance_date", today)
-        .order("balance_date", { ascending: false })
-        .limit(1)
+        .insert({
+          balance_date: today,
+          cash_opening: previousClosing.cash,
+          bank_opening: previousClosing.bank,
+          cash_closing: previousClosing.cash,
+          bank_closing: previousClosing.bank,
+          is_closed: false
+        })
+        .select()
+        .single()
 
-      if (prevBalance && prevBalance.length > 0 && prevBalance[0].is_closed) {
-        // Auto-create today's balance with previous day's closing as opening
-        const { data: newBalance } = await supabase
-          .from("daily_balances")
-          .insert({
-            balance_date: today,
-            cash_opening: prevBalance[0].cash_closing || 0,
-            bank_opening: prevBalance[0].bank_closing || 0,
-          })
-          .select()
-          .single()
-
-        if (newBalance) setTodayBalance(newBalance)
-      } else {
-        setTodayBalance(null)
+      if (createError) {
+        console.error("Create today failed:", createError)
+        setError("Failed to initialize today: " + createError.message)
+      } else if (newBalance) {
+        setTodayBalance(newBalance)
       }
     }
 
@@ -171,14 +208,34 @@ export default function BalanceManagementPage() {
 
       if (todayBalance) {
         // Update existing today's balance
+        // Calculate delta to preserve sales/transactions (movements)
+        const oldCashOpening = todayBalance.cash_opening || 0
+        const oldBankOpening = todayBalance.bank_opening || 0
+
+        const cashDelta = cashOpening - oldCashOpening
+        const bankDelta = bankOpening - oldBankOpening
+
+        const updatePayload: any = {
+          cash_opening: cashOpening,
+          bank_opening: bankOpening,
+        }
+
+        // Only adjust closing if it exists (meaning transactions/sales happened)
+        // If it's null, it implies it equals opening, so we leave it null (or set to new opening, 
+        // but leaving null allows it to float with opening if that's the logic, 
+        // though typically we treat null as 'no closing set').
+        // However, if we want to "perform operation on today's opening", we should ensure closing reflects that.
+        if (todayBalance.cash_closing !== null) {
+          updatePayload.cash_closing = Number(todayBalance.cash_closing) + cashDelta
+        }
+
+        if (todayBalance.bank_closing !== null) {
+          updatePayload.bank_closing = Number(todayBalance.bank_closing) + bankDelta
+        }
+
         const { error: updateError } = await supabase
           .from("daily_balances")
-          .update({
-            cash_opening: cashOpening,
-            bank_opening: bankOpening,
-            cash_closing: null,
-            bank_closing: null,
-          })
+          .update(updatePayload)
           .eq("id", todayBalance.id)
 
         if (updateError) throw updateError

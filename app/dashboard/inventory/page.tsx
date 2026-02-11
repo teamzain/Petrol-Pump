@@ -6,11 +6,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { createClient } from "@/lib/supabase/client"
-import { 
-  Fuel, 
-  Package, 
-  AlertTriangle, 
-  TrendingUp, 
+import {
+  Fuel,
+  Package,
+  AlertTriangle,
+  TrendingUp,
   TrendingDown,
   ArrowUpRight,
   ArrowDownRight,
@@ -19,6 +19,14 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface Product {
   id: string
@@ -55,7 +63,7 @@ export default function InventoryPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    
+
     const [productsRes, movementsRes] = await Promise.all([
       supabase
         .from("products")
@@ -71,7 +79,7 @@ export default function InventoryPage() {
 
     if (productsRes.data) setProducts(productsRes.data)
     if (movementsRes.data) setMovements(movementsRes.data as StockMovement[])
-    
+
     setLoading(false)
   }, [supabase])
 
@@ -81,10 +89,10 @@ export default function InventoryPage() {
 
   const fuelProducts = products.filter(p => p.product_type === "fuel")
   const oilProducts = products.filter(p => p.product_type === "oil_lubricant")
-  
+
   const totalStockValue = products.reduce((sum, p) => sum + (p.stock_value || 0), 0)
-  const lowStockAlerts = products.filter(p => 
-    p.product_type === "oil_lubricant" 
+  const lowStockAlerts = products.filter(p =>
+    p.product_type === "oil_lubricant"
       ? p.current_stock <= p.minimum_stock_level
       : p.tank_capacity && (p.current_stock / p.tank_capacity) < 0.2
   )
@@ -200,8 +208,8 @@ export default function InventoryPage() {
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {lowStockAlerts.map((product) => {
                 const stockStatus = getStockStatus(product)
-                const percentage = product.tank_capacity 
-                  ? (product.current_stock / product.tank_capacity) * 100 
+                const percentage = product.tank_capacity
+                  ? (product.current_stock / product.tank_capacity) * 100
                   : (product.current_stock / product.minimum_stock_level) * 100
 
                 return (
@@ -215,7 +223,7 @@ export default function InventoryPage() {
                       <div className="flex justify-between text-sm text-muted-foreground">
                         <span>Current: {product.current_stock.toLocaleString()}</span>
                         <span>
-                          {product.tank_capacity 
+                          {product.tank_capacity
                             ? `Capacity: ${product.tank_capacity.toLocaleString()}`
                             : `Min: ${product.minimum_stock_level}`
                           }
@@ -251,8 +259,8 @@ export default function InventoryPage() {
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {fuelProducts.map((product) => {
               const stockStatus = getStockStatus(product)
-              const percentage = product.tank_capacity 
-                ? (product.current_stock / product.tank_capacity) * 100 
+              const percentage = product.tank_capacity
+                ? (product.current_stock / product.tank_capacity) * 100
                 : 100
 
               return (
@@ -379,57 +387,59 @@ export default function InventoryPage() {
                   <p className="mt-2 text-sm text-muted-foreground">No stock movements recorded yet</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {movements.map((movement) => {
-                    const isPurchase = movement.movement_type === "purchase" || movement.movement_type === "initial"
-                    const typeLabel = movement.movement_type === "purchase" ? "Stock Added (Purchase)" 
-                      : movement.movement_type === "sale" ? "Stock Sold"
-                      : movement.movement_type === "initial" ? "Opening Stock"
-                      : movement.movement_type === "adjustment" ? "Stock Adjusted"
-                      : movement.movement_type
-                    
-                    return (
-                      <div key={movement.id} className="rounded-lg border p-4">
-                        <div className="flex items-start gap-3">
-                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${isPurchase ? "bg-primary/10" : "bg-destructive/10"}`}>
-                            {getMovementIcon(movement.movement_type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <div>
-                                <p className="font-semibold">{movement.products?.product_name}</p>
-                                <Badge variant="outline" className="text-xs mt-0.5">
-                                  {typeLabel}
-                                </Badge>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className={`text-lg font-bold ${isPurchase ? "text-primary" : "text-destructive"}`}>
-                                  {isPurchase ? "+" : "-"}{Number(movement.quantity).toLocaleString()}
-                                </span>
-                                <p className="text-xs text-muted-foreground">
-                                  {new Date(movement.movement_date).toLocaleDateString("en-PK", {
-                                    day: "numeric", month: "short", year: "numeric"
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                            {/* Human-readable description */}
-                            {movement.notes && (
-                              <p className="text-sm text-foreground mt-2 bg-muted/50 rounded p-2">
-                                {movement.notes}
-                              </p>
-                            )}
-                            <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                              {movement.unit_price && (
-                                <span>Price: Rs. {Number(movement.unit_price).toLocaleString()}/unit</span>
-                              )}
-                              <span>Stock After: {Number(movement.balance_after).toLocaleString()}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })}
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Product</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Change</TableHead>
+                        <TableHead className="text-right">Current</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {movements.map((movement) => {
+                        const isPositive = Number(movement.quantity) > 0
+                        const typeLabel = movement.movement_type === "purchase" ? "Purchase"
+                          : movement.movement_type === "sale" ? "Sale"
+                            : movement.movement_type === "initial" ? "Opening"
+                              : movement.movement_type === "adjustment" ? "Adj."
+                                : movement.movement_type
+
+                        return (
+                          <TableRow key={movement.id}>
+                            <TableCell className="font-medium whitespace-nowrap">
+                              {new Date(movement.movement_date).toLocaleDateString("en-PK", {
+                                day: "numeric", month: "short"
+                              })}
+                              <span className="ml-2 text-xs text-muted-foreground">
+                                {new Date(movement.movement_date).toLocaleTimeString("en-PK", {
+                                  hour: "2-digit", minute: "2-digit"
+                                })}
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <div className="font-medium">{movement.products?.product_name}</div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="text-xs font-normal">
+                                {typeLabel}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className={`font-bold ${isPositive ? "text-green-600" : "text-destructive"}`}>
+                                {isPositive ? "+" : ""}{Number(movement.quantity).toLocaleString()}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-xs">
+                              {Number(movement.balance_after).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </CardContent>

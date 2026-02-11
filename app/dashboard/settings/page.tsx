@@ -1,231 +1,316 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { createClient } from "@/lib/supabase/client"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CheckCircle2, AlertCircle, Save, Building2 } from "lucide-react"
+import { Moon, Sun, Laptop, User, Shield, Info, Check, Loader2 } from "lucide-react"
 
 export default function SettingsPage() {
-    const [loading, setLoading] = useState(true)
-    const [saving, setSaving] = useState(false)
-    const [error, setError] = useState("")
-    const [success, setSuccess] = useState("")
+    const { setTheme, theme } = useTheme()
+    const supabase = createClient()
+    const [loading, setLoading] = useState(false)
+    const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
-    const [config, setConfig] = useState({
-        id: "",
-        pump_name: "",
-        address: "",
-        contact_number: "",
-        ntn_strn: "",
-        license_number: "",
+    // Profile State
+    const [profile, setProfile] = useState({
+        id: '',
+        fullName: '',
+        email: '',
+        phone: ''
     })
 
-    const supabase = createClient()
+    // Password State
+    const [passwords, setPasswords] = useState({
+        current: '',
+        new: '',
+        confirm: ''
+    })
 
     useEffect(() => {
-        const fetchConfig = async () => {
-            setLoading(true)
-            const { data, error } = await supabase
-                .from("pump_config")
-                .select("*")
-                .limit(1)
-                .single()
+        fetchProfile()
+    }, [])
 
-            if (data) {
-                setConfig({
-                    id: data.id,
-                    pump_name: data.pump_name || "",
-                    address: data.address || "",
-                    contact_number: data.contact_number || "",
-                    ntn_strn: data.ntn_strn || "",
-                    license_number: data.license_number || "",
+    const fetchProfile = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                // Get extra details from public.users table if exists, or metadata
+                const { data: userDetails } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', user.id)
+                    .single()
+
+                setProfile({
+                    id: user.id,
+                    fullName: userDetails?.full_name || user.user_metadata?.full_name || '',
+                    email: user.email || '',
+                    phone: userDetails?.mobile || user.user_metadata?.mobile || ''
                 })
-            } else if (!error) {
-                // No config exists yet, we will create one on save
-            } else if (error && error.code !== 'PGRST116') {
-                // PGRST116 is "The result contains 0 rows" which is fine
-                setError("Failed to load settings")
             }
-            setLoading(false)
+        } catch (error) {
+            console.error('Error loading profile:', error)
         }
+    }
 
-        fetchConfig()
-    }, [supabase])
-
-    const handleSave = async () => {
-        setSaving(true)
-        setError("")
-        setSuccess("")
+    const handleProfileUpdate = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        setMessage(null)
 
         try {
-            if (!config.pump_name || !config.address) {
-                throw new Error("Pump Name and Address are required")
-            }
+            // 1. Update Supabase Auth Metadata
+            const { error: authError } = await supabase.auth.updateUser({
+                data: { full_name: profile.fullName, mobile: profile.phone }
+            })
+            if (authError) throw authError
 
-            const user = await supabase.auth.getUser()
-            if (!user.data.user) throw new Error("Not authenticated")
+            // 2. Update public.users table
+            const { error: dbError } = await supabase
+                .from('users')
+                .update({
+                    full_name: profile.fullName,
+                    mobile: profile.phone,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', profile.id)
 
-            let error
+            if (dbError) throw dbError
 
-            if (config.id) {
-                // Update existing
-                const { error: updateError } = await supabase
-                    .from("pump_config")
-                    .update({
-                        pump_name: config.pump_name,
-                        address: config.address,
-                        contact_number: config.contact_number,
-                        ntn_strn: config.ntn_strn,
-                        license_number: config.license_number,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", config.id)
-                error = updateError
-            } else {
-                // Create new
-                const { error: insertError } = await supabase
-                    .from("pump_config")
-                    .insert({
-                        pump_name: config.pump_name,
-                        address: config.address,
-                        contact_number: config.contact_number,
-                        ntn_strn: config.ntn_strn,
-                        license_number: config.license_number,
-                        setup_completed: true,
-                        setup_date: new Date().toISOString(),
-                    })
-                error = insertError
-            }
+            setMessage({ type: 'success', text: 'Profile updated successfully!' })
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Failed to update profile' })
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handlePasswordChange = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (passwords.new !== passwords.confirm) {
+            setMessage({ type: 'error', text: 'New passwords do not match' })
+            return
+        }
+
+        setLoading(true)
+        setMessage(null)
+
+        try {
+            const { error } = await supabase.auth.updateUser({
+                password: passwords.new
+            })
 
             if (error) throw error
 
-            setSuccess("Settings saved successfully!")
-
-            // Refresh to get ID if we just created it
-            if (!config.id) {
-                const { data } = await supabase.from("pump_config").select("id").limit(1).single()
-                if (data) setConfig((prev) => ({ ...prev, id: data.id }))
-            }
-
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Failed to save settings")
+            setMessage({ type: 'success', text: 'Password updated successfully!' })
+            setPasswords({ current: '', new: '', confirm: '' })
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Failed to update password' })
         } finally {
-            setSaving(false)
+            setLoading(false)
         }
     }
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
+        <div className="container max-w-4xl py-6 space-y-8">
+            <div>
                 <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-                <p className="text-muted-foreground">
-                    Manage your petrol pump configuration and details.
-                </p>
+                <p className="text-muted-foreground">Manage your account settings and preferences.</p>
             </div>
 
-            <div className="grid gap-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Building2 className="h-5 w-5" />
-                            General Configuration
-                        </CardTitle>
-                        <CardDescription>
-                            Basic information about your petrol pump station.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {error && (
-                            <Alert variant="destructive">
-                                <AlertCircle className="h-4 w-4" />
-                                <AlertTitle>Error</AlertTitle>
-                                <AlertDescription>{error}</AlertDescription>
-                            </Alert>
-                        )}
+            <Tabs defaultValue="appearance" className="space-y-4">
+                <TabsList>
+                    <TabsTrigger value="appearance" className="flex items-center gap-2">
+                        <Sun className="w-4 h-4" /> Appearance
+                    </TabsTrigger>
+                    <TabsTrigger value="profile" className="flex items-center gap-2">
+                        <User className="w-4 h-4" /> Profile
+                    </TabsTrigger>
+                    <TabsTrigger value="security" className="flex items-center gap-2">
+                        <Shield className="w-4 h-4" /> Security
+                    </TabsTrigger>
+                    <TabsTrigger value="about" className="flex items-center gap-2">
+                        <Info className="w-4 h-4" /> About
+                    </TabsTrigger>
+                </TabsList>
 
-                        {success && (
-                            <Alert className="border-primary bg-primary/5">
-                                <CheckCircle2 className="h-4 w-4 text-primary" />
-                                <AlertTitle>Success</AlertTitle>
-                                <AlertDescription>{success}</AlertDescription>
-                            </Alert>
-                        )}
+                {message && (
+                    <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className={message.type === 'success' ? 'border-green-500 text-green-700 bg-green-50' : ''}>
+                        {message.type === 'success' ? <Check className="h-4 w-4" /> : <Info className="h-4 w-4" />}
+                        <AlertTitle>{message.type === 'success' ? 'Success' : 'Error'}</AlertTitle>
+                        <AlertDescription>{message.text}</AlertDescription>
+                    </Alert>
+                )}
 
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="pump_name">Pump Name *</Label>
-                                <Input
-                                    id="pump_name"
-                                    value={config.pump_name}
-                                    onChange={(e) => setConfig({ ...config, pump_name: e.target.value })}
-                                    placeholder="e.g. Al-Madina Petroleum"
-                                    disabled={loading}
-                                />
+                {/* Appearance Tab */}
+                <TabsContent value="appearance">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Theme Preferences</CardTitle>
+                            <CardDescription>
+                                Customize how the application looks on your device.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid gap-4 pt-4">
+                            <div className="grid grid-cols-3 gap-4">
+                                <div
+                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground ${theme === 'light' ? 'border-primary bg-accent' : 'border-muted'}`}
+                                    onClick={() => setTheme("light")}
+                                >
+                                    <div className="mb-2 rounded-md bg-[#ecedef] p-2 h-20 w-full" />
+                                    <div className="flex items-center gap-2 font-medium">
+                                        <Sun className="w-4 h-4" /> Light
+                                    </div>
+                                </div>
+                                <div
+                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground ${theme === 'dark' ? 'border-primary bg-accent' : 'border-muted'}`}
+                                    onClick={() => setTheme("dark")}
+                                >
+                                    <div className="mb-2 rounded-md bg-slate-950 p-2 h-20 w-full" />
+                                    <div className="flex items-center gap-2 font-medium">
+                                        <Moon className="w-4 h-4" /> Dark
+                                    </div>
+                                </div>
+                                <div
+                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground ${theme === 'system' ? 'border-primary bg-accent' : 'border-muted'}`}
+                                    onClick={() => setTheme("system")}
+                                >
+                                    <div className="mb-2 rounded-md bg-gradient-to-r from-[#ecedef] to-slate-950 p-2 h-20 w-full" />
+                                    <div className="flex items-center gap-2 font-medium">
+                                        <Laptop className="w-4 h-4" /> System
+                                    </div>
+                                </div>
                             </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="contact_number">Contact Number</Label>
-                                <Input
-                                    id="contact_number"
-                                    value={config.contact_number}
-                                    onChange={(e) => setConfig({ ...config, contact_number: e.target.value })}
-                                    placeholder="e.g. 0300-1234567"
-                                    disabled={loading}
-                                />
+                {/* Profile Tab */}
+                <TabsContent value="profile">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Profile Information</CardTitle>
+                            <CardDescription>
+                                Update your personal details.
+                            </CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handleProfileUpdate}>
+                            <CardContent className="space-y-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="fullName">Full Name</Label>
+                                    <Input
+                                        id="fullName"
+                                        value={profile.fullName}
+                                        onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="email">Email</Label>
+                                    <Input
+                                        id="email"
+                                        value={profile.email}
+                                        disabled
+                                        className="bg-muted"
+                                    />
+                                    <p className="text-xs text-muted-foreground">Email cannot be changed directly.</p>
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="phone">Phone Number</Label>
+                                    <Input
+                                        id="phone"
+                                        value={profile.phone}
+                                        onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                                    />
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button type="submit" disabled={loading}>
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Save Changes
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
+                </TabsContent>
+
+                {/* Security Tab */}
+                <TabsContent value="security">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Change Password</CardTitle>
+                            <CardDescription>
+                                Ensure your account is using a strong password.
+                            </CardDescription>
+                        </CardHeader>
+                        <form onSubmit={handlePasswordChange}>
+                            <CardContent className="space-y-4">
+                                <div className="grid gap-2">
+                                    <Label htmlFor="new-password">New Password</Label>
+                                    <Input
+                                        id="new-password"
+                                        type="password"
+                                        value={passwords.new}
+                                        onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                                    />
+                                </div>
+                                <div className="grid gap-2">
+                                    <Label htmlFor="confirm-password">Confirm Password</Label>
+                                    <Input
+                                        id="confirm-password"
+                                        type="password"
+                                        value={passwords.confirm}
+                                        onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                                    />
+                                </div>
+                            </CardContent>
+                            <CardFooter>
+                                <Button type="submit" disabled={loading || !passwords.new}>
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Update Password
+                                </Button>
+                            </CardFooter>
+                        </form>
+                    </Card>
+                </TabsContent>
+
+                {/* About Tab */}
+                <TabsContent value="about">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>System Information</CardTitle>
+                            <CardDescription>
+                                Details about the current application version.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <p className="font-medium">App Name</p>
+                                    <p className="text-muted-foreground">Petrol Pump Manager</p>
+                                </div>
+                                <div>
+                                    <p className="font-medium">Version</p>
+                                    <p className="text-muted-foreground">v1.2.0 (Beta)</p>
+                                </div>
+                                <div>
+                                    <p className="font-medium">Environment</p>
+                                    <p className="text-muted-foreground">Production</p>
+                                </div>
+                                <div>
+                                    <p className="font-medium">License</p>
+                                    <p className="text-muted-foreground">Pro License</p>
+                                </div>
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="address">Address *</Label>
-                            <Input
-                                id="address"
-                                value={config.address}
-                                onChange={(e) => setConfig({ ...config, address: e.target.value })}
-                                placeholder="e.g. Main GT Road, Lahore"
-                                disabled={loading}
-                            />
-                        </div>
-
-                        <Separator className="my-2" />
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <div className="space-y-2">
-                                <Label htmlFor="ntn_strn">NTN / STRN</Label>
-                                <Input
-                                    id="ntn_strn"
-                                    value={config.ntn_strn}
-                                    onChange={(e) => setConfig({ ...config, ntn_strn: e.target.value })}
-                                    placeholder="Tax Identification Number"
-                                    disabled={loading}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="license_number">License Number</Label>
-                                <Input
-                                    id="license_number"
-                                    value={config.license_number}
-                                    onChange={(e) => setConfig({ ...config, license_number: e.target.value })}
-                                    placeholder="Petroleum License #"
-                                    disabled={loading}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex justify-end pt-4">
-                            <Button onClick={handleSave} disabled={loading || saving}>
-                                <Save className="mr-2 h-4 w-4" />
-                                {saving ? "Saving..." : "Save Changes"}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+            </Tabs>
         </div>
     )
 }

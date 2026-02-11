@@ -5,42 +5,46 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { format } from "date-fns"
 
-interface Purchase {
+interface PurchaseOrder {
   id: string
   purchase_date: string
-  quantity: number
-  purchase_price_per_unit: number
-  total_amount: number
-  payment_method: string
   invoice_number: string
-  notes: string | null
-  old_weighted_avg: number | null
-  new_weighted_avg: number | null
+  total_amount: number
+  paid_amount: number
+  due_amount: number
+  payment_method: string
   status: string
+  notes: string | null
   created_at: string
   suppliers: {
     supplier_name: string
     phone_number: string
   }
-  products: {
-    product_name: string
-    product_type: string
-    unit: string
-  }
+  purchases: {
+    id: string
+    quantity: number
+    purchase_price_per_unit: number
+    total_amount: number
+    products: {
+      product_name: string
+      product_type: string
+      unit: string
+    }
+  }[]
 }
 
 interface PurchaseDetailsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  purchase: Purchase | null
+  order: PurchaseOrder | null
 }
 
 export function PurchaseDetailsDialog({
   open,
   onOpenChange,
-  purchase,
+  order,
 }: PurchaseDetailsDialogProps) {
-  if (!purchase) return null
+  if (!order) return null
 
   const paymentMethodLabels: Record<string, string> = {
     bank_transfer: "Bank Transfer",
@@ -48,105 +52,100 @@ export function PurchaseDetailsDialog({
     cash: "Cash",
   }
 
+  const formatCurrency = (val: number) => `Rs. ${Number(val).toLocaleString()}`
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent className="sm:max-w-[650px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Purchase Details</DialogTitle>
-          <DialogDescription>
-            Invoice #{purchase.invoice_number}
+          <DialogTitle className="flex items-center gap-2 font-bold text-xl">
+            Invoice Details
+          </DialogTitle>
+          <DialogDescription className="font-mono text-sm">
+            #{order.invoice_number}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Status</span>
-            <Badge
-              variant={
-                purchase.status === "completed"
-                  ? "default"
-                  : purchase.status === "pending"
-                    ? "secondary"
-                    : "destructive"
-              }
-            >
-              {purchase.status.charAt(0).toUpperCase() + purchase.status.slice(1)}
-            </Badge>
-          </div>
-
-          <Separator />
-
-          <div className="grid gap-3">
-            <h4 className="font-medium">Product Information</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Product</span>
-              <span className="font-medium">{purchase.products.product_name}</span>
-              <span className="text-muted-foreground">Type</span>
-              <span className="capitalize">{purchase.products.product_type.replace("_", " ")}</span>
-              <span className="text-muted-foreground">Quantity</span>
-              <span>{purchase.quantity.toLocaleString()} {purchase.products.unit}</span>
+        <div className="space-y-6 py-4">
+          {/* Header Info */}
+          <div className="flex justify-between items-start border-b pb-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Supplier</p>
+              <p className="font-bold text-lg">{order.suppliers?.supplier_name}</p>
+              <p className="text-sm text-muted-foreground">{order.suppliers?.phone_number}</p>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-wider">Date</p>
+              <p className="font-medium">{format(new Date(order.purchase_date), "PPP")}</p>
+              <Badge variant={order.due_amount > 0 ? "destructive" : "default"}>
+                {order.due_amount > 0 ? "Outstanding" : "Completed"}
+              </Badge>
             </div>
           </div>
 
-          <Separator />
-
-          <div className="grid gap-3">
-            <h4 className="font-medium">Supplier Information</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Supplier</span>
-              <span className="font-medium">{purchase.suppliers.supplier_name}</span>
-              <span className="text-muted-foreground">Contact</span>
-              <span>{purchase.suppliers.phone_number}</span>
+          {/* Items Table */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+              Order Items
+            </h4>
+            <div className="border rounded-md overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-muted-foreground text-left">
+                  <tr>
+                    <th className="p-2 font-medium">Product</th>
+                    <th className="p-2 font-medium text-right">Qty</th>
+                    <th className="p-2 font-medium text-right">Rate</th>
+                    <th className="p-2 font-medium text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {order.purchases?.map((item) => (
+                    <tr key={item.id} className="hover:bg-muted/30">
+                      <td className="p-2">
+                        <p className="font-medium">{item.products?.product_name}</p>
+                        <p className="text-xs text-muted-foreground capitalize">{item.products?.product_type.replace("_", " ")}</p>
+                      </td>
+                      <td className="p-2 text-right">{item.quantity.toLocaleString()} {item.products?.unit}</td>
+                      <td className="p-2 text-right">{formatCurrency(item.purchase_price_per_unit)}</td>
+                      <td className="p-2 text-right font-medium">{formatCurrency(item.total_amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
 
-          <Separator />
-
-          <div className="grid gap-3">
-            <h4 className="font-medium">Price Details</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Price per Unit</span>
-              <span>Rs. {purchase.purchase_price_per_unit.toLocaleString()}</span>
-              <span className="text-muted-foreground">Total Amount</span>
-              <span className="font-semibold text-primary">
-                Rs. {purchase.total_amount.toLocaleString()}
+          {/* Totals Section */}
+          <div className="bg-muted/30 p-4 rounded-lg space-y-2 ml-auto w-full sm:w-64">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Order Total:</span>
+              <span className="font-bold">{formatCurrency(order.total_amount)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-green-600">
+              <span>Amount Paid:</span>
+              <span className="font-bold">-{formatCurrency(order.paid_amount)}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between font-bold text-lg pt-1">
+              <span>Due Balance:</span>
+              <span className={order.due_amount > 0 ? "text-destructive" : "text-green-600"}>
+                {formatCurrency(order.due_amount)}
               </span>
-              <span className="text-muted-foreground">Payment Method</span>
-              <span>{paymentMethodLabels[purchase.payment_method] || purchase.payment_method}</span>
             </div>
           </div>
 
-          {(purchase.old_weighted_avg || purchase.new_weighted_avg) && (
-            <>
-              <Separator />
-              <div className="grid gap-3">
-                <h4 className="font-medium">Weighted Average Impact</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <span className="text-muted-foreground">Before Purchase</span>
-                  <span>Rs. {purchase.old_weighted_avg?.toFixed(2) || "N/A"}</span>
-                  <span className="text-muted-foreground">After Purchase</span>
-                  <span className="font-medium text-primary">
-                    Rs. {purchase.new_weighted_avg?.toFixed(2) || "N/A"}
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
-
-          <Separator />
-
-          <div className="grid gap-3">
-            <h4 className="font-medium">Additional Information</h4>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Purchase Date</span>
-              <span>{format(new Date(purchase.purchase_date), "PPP")}</span>
-              <span className="text-muted-foreground">Recorded On</span>
-              <span>{format(new Date(purchase.created_at), "PPP p")}</span>
+          {/* Payment Method & Notes */}
+          <div className="grid grid-cols-2 gap-4 text-sm bg-secondary/20 p-3 rounded">
+            <div>
+              <span className="text-muted-foreground block mb-1">Payment Method</span>
+              <Badge variant="outline" className="capitalize">
+                {order.payment_method?.replace("_", " ")}
+              </Badge>
             </div>
-            {purchase.notes && (
-              <div className="mt-2">
-                <span className="text-sm text-muted-foreground">Notes:</span>
-                <p className="mt-1 text-sm rounded-md bg-muted p-2">{purchase.notes}</p>
+            {order.notes && (
+              <div className="col-span-2 mt-2">
+                <span className="text-muted-foreground block mb-1">Notes</span>
+                <p className="italic text-muted-foreground">{order.notes}</p>
               </div>
             )}
           </div>

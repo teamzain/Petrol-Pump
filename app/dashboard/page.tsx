@@ -15,6 +15,7 @@ import {
   Plus,
 } from "lucide-react"
 import Link from "next/link"
+import { DailyOperationsWidget } from "@/components/dashboard/daily-operations-widget"
 
 type DashboardStats = {
   totalProducts: number
@@ -232,6 +233,9 @@ export default function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {/* Daily Operations Widget */}
+      <DailyOperationsWidget />
 
       {/* Stats Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">

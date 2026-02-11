@@ -22,11 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
-import { 
-  Plus, 
-  Gauge, 
-  Pencil, 
-  Trash2, 
+import {
+  Plus,
+  Gauge,
+  Pencil,
+  Trash2,
   AlertCircle,
   CheckCircle2,
   Fuel,
@@ -73,7 +73,7 @@ export default function NozzlesPage() {
   const [selectedNozzle, setSelectedNozzle] = useState<Nozzle | null>(null)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
-  
+
   const [formData, setFormData] = useState({
     nozzle_number: "",
     pump_number: "",
@@ -146,7 +146,7 @@ export default function NozzlesPage() {
       if (!formData.nozzle_number.trim()) {
         throw new Error("Please enter a nozzle name/number")
       }
-      if (!formData.pump_number.trim()) {
+      if (!String(formData.pump_number).trim()) {
         throw new Error("Please enter a pump number")
       }
       if (!formData.nozzle_side) {
@@ -164,7 +164,7 @@ export default function NozzlesPage() {
           .from("nozzles")
           .update({
             nozzle_number: formData.nozzle_number.trim(),
-            pump_number: formData.pump_number.trim() || null,
+            pump_number: String(formData.pump_number).trim() || null,
             nozzle_side: formData.nozzle_side || null,
             product_id: formData.product_id,
             initial_reading: initialReading,
@@ -179,7 +179,7 @@ export default function NozzlesPage() {
           .from("nozzles")
           .insert({
             nozzle_number: formData.nozzle_number.trim(),
-            pump_number: formData.pump_number.trim() || null,
+            pump_number: String(formData.pump_number).trim() || null,
             nozzle_side: formData.nozzle_side || null,
             product_id: formData.product_id,
             initial_reading: initialReading,
@@ -341,8 +341,8 @@ export default function NozzlesPage() {
             <div className="flex h-32 flex-col items-center justify-center text-center">
               <Gauge className="h-12 w-12 text-muted-foreground/50" />
               <p className="mt-2 text-sm text-muted-foreground">No nozzles configured</p>
-              <Button 
-                variant="link" 
+              <Button
+                variant="link"
                 className="mt-1"
                 onClick={() => handleOpenDialog()}
               >
@@ -371,8 +371,8 @@ export default function NozzlesPage() {
                       <TableCell>{nozzle.pump_number || "-"}</TableCell>
                       <TableCell className="capitalize">{nozzle.nozzle_side || "-"}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={getNozzleBadgeColor(nozzle.products?.product_name || "")}
                         >
                           {nozzle.products?.product_name}
@@ -453,8 +453,8 @@ export default function NozzlesPage() {
                             {nozzle.nozzle_side || "Side"}
                           </div>
                           <div className="font-medium text-sm">{nozzle.nozzle_number}</div>
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className={`${getNozzleBadgeColor(nozzle.products?.product_name || "")} text-xs mt-1`}
                           >
                             {nozzle.products?.product_name}
@@ -478,8 +478,8 @@ export default function NozzlesPage() {
               {selectedNozzle ? "Edit Nozzle" : "Add New Nozzle"}
             </DialogTitle>
             <DialogDescription>
-              {selectedNozzle 
-                ? "Update the nozzle configuration" 
+              {selectedNozzle
+                ? "Update the nozzle configuration"
                 : "Configure a new fuel dispensing nozzle"
               }
             </DialogDescription>

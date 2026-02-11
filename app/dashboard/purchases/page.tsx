@@ -21,114 +21,128 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
-import { Plus, Search, ShoppingCart, TrendingUp, Calendar, Eye, Fuel, Package } from "lucide-react"
+import { Plus, Search, ShoppingCart, TrendingUp, Calendar, Eye, Fuel, Package, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
 import { PurchaseDialog } from "@/components/purchases/purchase-dialog"
 import { OilPurchaseDialog } from "@/components/purchases/oil-purchase-dialog"
 import { PurchaseDetailsDialog } from "@/components/purchases/purchase-details-dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ChevronDown } from "lucide-react"
 
-interface Purchase {
+interface PurchaseOrder {
   id: string
   purchase_date: string
   invoice_number: string
-  quantity: number
-  purchase_price_per_unit: number
   total_amount: number
+  paid_amount: number
+  due_amount: number
   payment_method: string
-  old_weighted_avg: number | null
-  new_weighted_avg: number | null
   status: string
   notes: string | null
   suppliers: {
     supplier_name: string
     phone_number: string
   }
-  products: {
-    product_name: string
-    product_type: string
-    unit: string
-  }
+  purchases: {
+    id: string
+    quantity: number
+    purchase_price_per_unit: number
+    total_amount: number
+    products: {
+      product_name: string
+      product_type: string
+      unit: string
+    }
+  }[]
   created_at: string
 }
 
 export default function PurchasesPage() {
-  const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [orders, setOrders] = useState<PurchaseOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterType, setFilterType] = useState<string>("all")
+  const [filterStatus, setFilterStatus] = useState<string>("all")
   const [fuelDialogOpen, setFuelDialogOpen] = useState(false)
   const [oilDialogOpen, setOilDialogOpen] = useState(false)
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
-  const [selectedPurchase, setSelectedPurchase] = useState<Purchase | null>(null)
-  const [purchaseType, setPurchaseType] = useState<"fuel" | "oil">("fuel")
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<PurchaseOrder | null>(null)
 
   const supabase = createClient()
 
-  const fetchPurchases = useCallback(async () => {
+  const fetchOrders = useCallback(async () => {
     setLoading(true)
     const { data, error } = await supabase
-      .from("purchases")
-      .select("*, suppliers(supplier_name, phone_number), products(product_name, product_type, unit)")
+      .from("purchase_orders")
+      .select("*, suppliers(supplier_name, phone_number), purchases(*, products(product_name, product_type))")
       .order("purchase_date", { ascending: false })
 
     if (!error && data) {
-      setPurchases(data as Purchase[])
+      setOrders(data as unknown as PurchaseOrder[])
     }
     setLoading(false)
   }, [supabase])
 
   useEffect(() => {
-    fetchPurchases()
-  }, [fetchPurchases])
+    fetchOrders()
+  }, [fetchOrders])
 
-  const filteredPurchases = purchases.filter(purchase => {
+  const filteredOrders = orders.filter(order => {
+    const searchString = searchQuery.toLowerCase()
     const matchesSearch =
-      purchase.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.suppliers?.supplier_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      purchase.products?.product_name.toLowerCase().includes(searchQuery.toLowerCase())
+      (order.invoice_number?.toLowerCase() || "").includes(searchString) ||
+      (order.suppliers?.supplier_name?.toLowerCase() || "").includes(searchString) ||
+      order.purchases?.some(p => (p.products?.product_name?.toLowerCase() || "").includes(searchString))
 
-    const matchesType = filterType === "all" || purchase.products?.product_type === filterType
+    // Type filter is tricky with orders that might have mixed products. 
+    // For now, we filter if ANY product in order matches the type.
+    // Type filter
+    const matchesType = filterType === "all" ||
+      order.purchases?.some(p => p.products?.product_type === filterType)
 
-    return matchesSearch && matchesType
+    // Status filter
+    const matchesStatus = filterStatus === "all" ||
+      (filterStatus === "paid" && Number(order.due_amount) <= 0) ||
+      (filterStatus === "due" && Number(order.due_amount) > 0)
+
+    return matchesSearch && matchesType && matchesStatus
   })
 
-  const totalPurchaseValue = filteredPurchases.reduce((sum, p) => sum + p.total_amount, 0)
-  const totalQuantity = filteredPurchases.reduce((sum, p) => sum + p.quantity, 0)
-  const uniqueSuppliers = new Set(purchases.map(p => p.suppliers?.supplier_name)).size
+  const totalPurchaseValue = filteredOrders.reduce((sum, o) => sum + Number(o.total_amount), 0)
+  const totalPaid = filteredOrders.reduce((sum, o) => sum + Number(o.paid_amount), 0)
+  const totalDue = filteredOrders.reduce((sum, o) => sum + Number(o.due_amount), 0)
+  const uniqueSuppliers = new Set(orders.map(o => o.suppliers?.supplier_name)).size
 
   const getPaymentBadge = (method: string) => {
     switch (method) {
-      case "cash":
-        return <Badge variant="secondary">Cash</Badge>
-      case "bank_transfer":
-        return <Badge className="bg-primary/10 text-primary">Bank Transfer</Badge>
-      case "cheque":
-        return <Badge className="bg-accent/10 text-accent">Cheque</Badge>
-      default:
-        return <Badge variant="outline">{method}</Badge>
+      case "cash": return <Badge variant="secondary">Cash</Badge>
+      case "bank_transfer": return <Badge className="bg-primary/10 text-primary">Bank</Badge>
+      default: return <Badge variant="outline">{method}</Badge>
     }
   }
 
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-3xl font-bold tracking-tight">Purchase Management</h1>
-        <p className="text-muted-foreground">
-          Record purchases with automatic stock and balance updates
-        </p>
+        <h1 className="text-3xl font-bold tracking-tight">Purchases & Invoices</h1>
+        <p className="text-muted-foreground">Manage multi-product purchase orders and track payments.</p>
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Purchases</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{purchases.length}</div>
-            <p className="text-xs text-muted-foreground">All time records</p>
+            <div className="text-2xl font-bold">{orders.length}</div>
+            <p className="text-xs text-muted-foreground">Invoice records</p>
           </CardContent>
         </Card>
 
@@ -139,50 +153,59 @@ export default function PurchasesPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">Rs. {totalPurchaseValue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Filtered results</p>
+            <p className="text-xs text-muted-foreground">Sum of invoices</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Quantity</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Paid</CardTitle>
+            <CheckCircle2 className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalQuantity.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">Units purchased</p>
+            <div className="text-2xl font-bold text-green-600">Rs. {totalPaid.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Amount cleared</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Suppliers</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Due</CardTitle>
+            <AlertCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{uniqueSuppliers}</div>
-            <p className="text-xs text-muted-foreground">Suppliers with purchases</p>
+            <div className="text-2xl font-bold text-destructive">Rs. {totalDue.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">Outstanding balance</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Purchases Table */}
+      {/* Orders Table */}
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Purchase Records</CardTitle>
-              <CardDescription>View and manage all purchase transactions</CardDescription>
+              <CardTitle>Invoice Records</CardTitle>
+              <CardDescription>View all purchase invoices and payment status</CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button onClick={() => setFuelDialogOpen(true)}>
-                <Fuel className="mr-2 h-4 w-4" />
-                Fuel Purchase
-              </Button>
-              <Button variant="outline" onClick={() => setOilDialogOpen(true)}>
-                <Package className="mr-2 h-4 w-4" />
-                Oil Purchase
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="font-bold shadow-lg shadow-primary/20">
+                    <Plus className="mr-2 h-4 w-4" /> New Purchase <ChevronDown className="ml-2 h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[200px] p-2 rounded-xl">
+                  <DropdownMenuItem onClick={() => setFuelDialogOpen(true)} className="flex items-center gap-2 p-3 rounded-lg cursor-pointer">
+                    <Fuel className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Fuel Purchase</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setOilDialogOpen(true)} className="flex items-center gap-2 p-3 rounded-lg cursor-pointer">
+                    <Package className="h-4 w-4 text-primary" />
+                    <span className="font-medium">Oil/Lubricant</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </CardHeader>
@@ -194,90 +217,90 @@ export default function PurchasesPage() {
                 placeholder="Search by invoice, supplier, or product..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-10"
               />
             </div>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by type" />
+              <SelectTrigger className="w-full sm:w-[150px] h-10">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Type" />
+                </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Products</SelectItem>
+                <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="fuel">Fuel Only</SelectItem>
-                <SelectItem value="oil_lubricant">Oils Only</SelectItem>
+                <SelectItem value="oil_lubricant">Oils & Lubes</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-full sm:w-[150px] h-10">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                  <SelectValue placeholder="Status" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="due">Running Due</SelectItem>
+                <SelectItem value="paid">Fully Paid</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          ) : filteredPurchases.length === 0 ? (
-            <div className="flex h-32 flex-col items-center justify-center text-center">
-              <ShoppingCart className="h-12 w-12 text-muted-foreground/50" />
-              <p className="mt-2 text-sm text-muted-foreground">No purchases found</p>
-              <Button
-                variant="link"
-                className="mt-1"
-                onClick={() => setFuelDialogOpen(true)}
-              >
-                Record your first purchase
-              </Button>
+          ) : filteredOrders.length === 0 ? (
+            <div className="text-center py-10 border rounded-md">
+              <p className="text-muted-foreground">No records found.</p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
                     <TableHead>Invoice #</TableHead>
                     <TableHead>Supplier</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
-                    <TableHead className="text-right">Unit Price</TableHead>
+                    <TableHead>Items</TableHead>
                     <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Payment</TableHead>
+                    <TableHead className="text-right">Paid</TableHead>
+                    <TableHead className="text-right">Due</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredPurchases.map((purchase) => (
-                    <TableRow key={purchase.id}>
+                  {filteredOrders.map((order) => (
+                    <TableRow key={order.id}>
+                      <TableCell>{new Date(order.purchase_date).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-mono text-sm">{order.invoice_number}</TableCell>
+                      <TableCell>{order.suppliers?.supplier_name}</TableCell>
                       <TableCell>
-                        {new Date(purchase.purchase_date).toLocaleDateString()}
+                        <Badge variant="outline">{order.purchases?.length || 0} Products</Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">{purchase.invoice_number}</TableCell>
-                      <TableCell>{purchase.suppliers?.supplier_name}</TableCell>
+                      <TableCell className="text-right font-medium">Rs. {Number(order.total_amount).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-green-600">Rs. {Number(order.paid_amount).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-destructive font-semibold">
+                        {Number(order.due_amount) > 0 ? `Rs. ${Number(order.due_amount).toLocaleString()}` : "-"}
+                      </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {purchase.products?.product_name}
-                          <Badge variant="outline" className="text-xs">
-                            {purchase.products?.product_type === "fuel" ? "Fuel" : "Oil"}
-                          </Badge>
-                        </div>
+                        <Badge variant={Number(order.due_amount) > 0 ? "destructive" : "default"}>
+                          {Number(order.due_amount) > 0 ? "Partial/Due" : "Cleared"}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
-                        {purchase.quantity.toLocaleString()}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        Rs. {purchase.purchase_price_per_unit.toFixed(2)}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold">
-                        Rs. {purchase.total_amount.toLocaleString()}
-                      </TableCell>
-                      <TableCell>{getPaymentBadge(purchase.payment_method)}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            setSelectedPurchase(purchase)
+                            setSelectedOrder(order)
                             setDetailsDialogOpen(true)
                           }}
                         >
                           <Eye className="h-4 w-4" />
-                          <span className="sr-only">View Details</span>
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -292,20 +315,21 @@ export default function PurchasesPage() {
       <PurchaseDialog
         open={fuelDialogOpen}
         onOpenChange={setFuelDialogOpen}
-        onSuccess={fetchPurchases}
+        onSuccess={fetchOrders}
       />
 
       <OilPurchaseDialog
         open={oilDialogOpen}
         onOpenChange={setOilDialogOpen}
-        onSuccess={fetchPurchases}
+        onSuccess={fetchOrders}
       />
 
-      {selectedPurchase && (
+      {/* Selected Order Detail Dialog */}
+      {selectedOrder && (
         <PurchaseDetailsDialog
           open={detailsDialogOpen}
           onOpenChange={setDetailsDialogOpen}
-          purchase={selectedPurchase}
+          order={selectedOrder}
         />
       )}
     </div>

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Bell, User, Settings, LogOut, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { NotificationsPopover } from "./notifications-popover"
 
 type UserData = {
   full_name: string
@@ -74,10 +75,7 @@ export function DashboardHeader() {
         {/* Right side - Actions */}
         <div className="flex items-center gap-2 ml-auto">
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-          </Button>
+          <NotificationsPopover />
 
           {/* User Menu */}
           <DropdownMenu>
