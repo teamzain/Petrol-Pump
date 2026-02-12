@@ -23,7 +23,3 @@ TRUNCATE TABLE
   public.pump_config,
   public.users
 RESTART IDENTITY CASCADE;
-
--- Note: We include public.users here. If you want to keep the user profiles
--- but delete everything else, remove 'public.users' from the list.
--- However, Auth users (in auth.users) are NOT deleted by this script.
