@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { format } from "date-fns"
+import { getTodayPKT } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -85,7 +87,7 @@ export default function BalanceManagementPage() {
   })
 
   const supabase = createClient()
-  const today = new Date().toISOString().split("T")[0]
+  const today = getTodayPKT()
 
   const fetchBalances = useCallback(async () => {
     setLoading(true)
@@ -144,20 +146,30 @@ export default function BalanceManagementPage() {
       console.log("Creating new record for today...")
       const { data: newBalance, error: createError } = await supabase
         .from("daily_balances")
-        .insert({
+        .upsert({
           balance_date: today,
           cash_opening: previousClosing.cash,
           bank_opening: previousClosing.bank,
           cash_closing: previousClosing.cash,
           bank_closing: previousClosing.bank,
           is_closed: false
-        })
+        }, { onConflict: 'balance_date' })
         .select()
         .single()
 
       if (createError) {
-        console.error("Create today failed:", createError)
-        setError("Failed to initialize today: " + createError.message)
+        // If it's a duplicate, it means someone else created it, so just re-fetch
+        if (createError.code === '23505') {
+          const { data: refetch } = await supabase
+            .from("daily_balances")
+            .select("*")
+            .eq("balance_date", today)
+            .single()
+          if (refetch) setTodayBalance(refetch)
+        } else {
+          console.error("Create today failed:", createError)
+          setError("Failed to initialize today: " + createError.message)
+        }
       } else if (newBalance) {
         setTodayBalance(newBalance)
       }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { getTodayPKT } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Fuel,
@@ -66,7 +67,7 @@ export default function DashboardPage() {
         ).length || 0
 
         // Fetch balance from daily_balances - get the most recent record
-        const today = new Date().toISOString().split("T")[0]
+        const today = getTodayPKT()
         let cashBal = 0
         let bankBal = 0
 

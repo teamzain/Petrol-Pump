@@ -2,6 +2,7 @@
 
 import React from "react"
 import { useState, useEffect } from "react"
+import { getTodayPKT } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -98,7 +99,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   }[]>([])
 
   const [formData, setFormData] = useState({
-    purchase_date: new Date().toISOString().split("T")[0],
+    purchase_date: getTodayPKT(),
     supplier_id: "",
     payment_method: "cash",
     invoice_number: "",
@@ -130,7 +131,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
     setError("")
     setCart([])
     setFormData({
-      purchase_date: new Date().toISOString().split("T")[0],
+      purchase_date: getTodayPKT(),
       supplier_id: "",
       payment_method: "cash",
       invoice_number: `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
@@ -154,7 +155,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   }
 
   const fetchTodayBalance = async () => {
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayPKT()
     const { data } = await supabase.from("daily_balances").select("*").eq("balance_date", today).maybeSingle()
     if (data) setTodayBalance(data)
     else {

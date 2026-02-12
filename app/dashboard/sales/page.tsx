@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
+import { getTodayPKT } from "@/lib/utils"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -106,7 +107,7 @@ export default function SalesPage() {
   const { toast } = useToast()
 
   // State
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0])
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayPKT())
   const [activeTab, setActiveTab] = useState("fuel")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -573,7 +574,6 @@ export default function SalesPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="cash">Cash</SelectItem>
-                              <SelectItem value="bank">Bank</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>

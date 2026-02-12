@@ -44,7 +44,7 @@ import { Label } from "@/components/ui/label"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
 import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
+import { cn, getTodayPKT } from "@/lib/utils"
 
 // Report Components
 import { DailySummaryReport } from "@/components/reports/daily-summary"
@@ -125,7 +125,7 @@ export default function ReportsPage() {
         if (!reportData) return
 
         let csvContent = "data:text/csv;charset=utf-8,"
-        let fileName = `report-${activeTab}-${format(new Date(), "yyyy-MM-dd")}.csv`
+        let fileName = `report-${activeTab}-${getTodayPKT()}.csv`
 
         // Header and Data generation based on current report data structure
         if (activeTab === "daily-summary" && reportData.stockMovements) {

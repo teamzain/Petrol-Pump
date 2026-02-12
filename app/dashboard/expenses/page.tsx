@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { format } from "date-fns"
+import { getTodayPKT } from "@/lib/utils"
 import {
     DollarSign,
     TrendingDown,
@@ -87,7 +89,7 @@ export default function ExpensesPage() {
     // Form State
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [formData, setFormData] = useState({
-        date: new Date().toISOString().split("T")[0],
+        date: format(new Date(), "yyyy-MM-dd"),
         categoryId: "",
         amount: "",
         paymentMethod: "cash",
@@ -118,7 +120,7 @@ export default function ExpensesPage() {
             if (catData) setCategories(catData)
 
             // 2. Fetch Today's Balance
-            const today = new Date().toISOString().split("T")[0]
+            const today = getTodayPKT()
             const { data: balanceData } = await supabase
                 .from("daily_balances")
                 .select("*")
@@ -153,12 +155,12 @@ export default function ExpensesPage() {
 
     // --- Derived Stats ---
     const stats = useMemo(() => {
-        const today = new Date().toISOString().split("T")[0]
+        const today = getTodayPKT()
         const todayTotal = expenses
             .filter(e => e.expense_date === today)
             .reduce((sum, e) => sum + Number(e.amount), 0)
 
-        const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split("T")[0]
+        const startOfMonth = format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), "yyyy-MM-dd")
         const monthTotal = expenses
             .filter(e => e.expense_date >= startOfMonth)
             .reduce((sum, e) => sum + Number(e.amount), 0)
@@ -218,7 +220,7 @@ export default function ExpensesPage() {
             setSuccess("Expense recorded successfully!")
             setIsDialogOpen(false)
             setFormData({
-                date: new Date().toISOString().split("T")[0],
+                date: getTodayPKT(),
                 categoryId: "",
                 amount: "",
                 paymentMethod: "cash",

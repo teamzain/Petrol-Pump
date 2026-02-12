@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { getTodayPKT } from "@/lib/utils"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,7 +49,7 @@ export default function CloseDayPage() {
     const [bankVarianceNote, setBankVarianceNote] = useState("")
     const [cashVarianceNote, setCashVarianceNote] = useState("")
 
-    const today = new Date().toISOString().split("T")[0]
+    const today = getTodayPKT()
 
     useEffect(() => {
         fetchDayData()
