@@ -400,7 +400,17 @@ export default function InventoryPage() {
                     </TableHeader>
                     <TableBody>
                       {movements.map((movement) => {
-                        const isPositive = Number(movement.quantity) > 0
+                        const rawQty = Number(movement.quantity)
+                        let signedQty = rawQty
+
+                        // Force sign based on type for known inconsistent types
+                        if (movement.movement_type === "sale") {
+                          signedQty = -Math.abs(rawQty)
+                        } else if (movement.movement_type === "purchase" || movement.movement_type === "initial") {
+                          signedQty = Math.abs(rawQty)
+                        }
+
+                        const isPositive = signedQty > 0
                         const typeLabel = movement.movement_type === "purchase" ? "Purchase"
                           : movement.movement_type === "sale" ? "Sale"
                             : movement.movement_type === "initial" ? "Opening"
@@ -429,7 +439,7 @@ export default function InventoryPage() {
                             </TableCell>
                             <TableCell className="text-right">
                               <span className={`font-bold ${isPositive ? "text-green-600" : "text-destructive"}`}>
-                                {isPositive ? "+" : ""}{Number(movement.quantity).toLocaleString()}
+                                {isPositive ? "+" : ""}{signedQty.toLocaleString()}
                               </span>
                             </TableCell>
                             <TableCell className="text-right font-mono text-xs">

@@ -602,45 +602,81 @@ export default function SalesPage() {
                 <CardDescription>Record sale of lubricants or other items</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Product</Label>
-                  <Select value={newProductSale.product_id} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, product_id: v }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Product" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {oilProducts.map(p => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.product_name} ({p.current_stock} {p.unit}) - Rs.{p.selling_price}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Product</Label>
+                    <Select value={newProductSale.product_id} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, product_id: v }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Product" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {oilProducts.map(p => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.product_name} ({p.current_stock} {p.unit}) - Rs.{p.selling_price}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {newProductSale.product_id && (
+                    <div className="text-xs text-muted-foreground font-medium px-1">
+                      Available Stock: <span className={
+                        (oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock || 0) < parseFloat(newProductSale.quantity || "0")
+                          ? "text-destructive font-bold"
+                          : "text-primary font-bold"
+                      }>
+                        {oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock} {oilProducts.find(p => p.id === newProductSale.product_id)?.unit}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label>Quantity</Label>
+                    <Input
+                      type="number"
+                      value={newProductSale.quantity}
+                      onChange={(e) => setNewProductSale(prev => ({ ...prev, quantity: e.target.value }))}
+                      placeholder="0"
+                      className={
+                        newProductSale.product_id &&
+                          (oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock || 0) < parseFloat(newProductSale.quantity || "0")
+                          ? "border-destructive focus-visible:ring-destructive"
+                          : ""
+                      }
+                    />
+                    {newProductSale.product_id && newProductSale.quantity &&
+                      (oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock || 0) < parseFloat(newProductSale.quantity) && (
+                        <p className="text-[10px] text-destructive font-bold">
+                          Exceeds available stock!
+                        </p>
+                      )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Payment Method</Label>
+                    <Select value={newProductSale.payment_method} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, payment_method: v }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Payment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="bank">Bank Transfer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    className="w-full"
+                    onClick={handleAddProductSale}
+                    disabled={
+                      saving ||
+                      !newProductSale.product_id ||
+                      !newProductSale.quantity ||
+                      (oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock || 0) < parseFloat(newProductSale.quantity || "0")
+                    }
+                  >
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record Sale"}
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Quantity</Label>
-                  <Input
-                    type="number"
-                    value={newProductSale.quantity}
-                    onChange={(e) => setNewProductSale(prev => ({ ...prev, quantity: e.target.value }))}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Payment Method</Label>
-                  <Select value={newProductSale.payment_method} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, payment_method: v }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Payment" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="bank">Bank Transfer</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button className="w-full" onClick={handleAddProductSale} disabled={saving}>
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record Sale"}
-                </Button>
               </CardContent>
             </Card>
 

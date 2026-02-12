@@ -33,27 +33,70 @@ DECLARE
 BEGIN
     -- STEP 1: Determine Product ID and Quantity Change
     IF (TG_OP = 'DELETE') THEN
-        v_prod_id := OLD.product_id;
+        -- Handle Product ID lookup
+        IF TG_TABLE_NAME = 'nozzle_readings' THEN
+             SELECT product_id INTO v_prod_id FROM public.nozzles WHERE id = OLD.nozzle_id;
+        ELSE
+             v_prod_id := OLD.product_id;
+        END IF;
+        
         v_ref_id := OLD.id;
-        v_qty_delta := CASE 
-            WHEN TG_TABLE_NAME = 'purchases' THEN -OLD.quantity 
-            ELSE OLD.quantity 
-        END;
+
+        -- Handle different quantity column names
+        IF TG_TABLE_NAME = 'nozzle_readings' THEN
+             v_qty_delta := OLD.quantity_sold;
+        ELSE
+             v_qty_delta := CASE 
+                WHEN TG_TABLE_NAME = 'purchases' THEN -OLD.quantity 
+                ELSE OLD.quantity 
+            END;
+        END IF;
+
+        -- If deleting a SALE record, check if it's fuel. If so, IGNORE stock change (let nozzle_reading handle it)
+        IF TG_TABLE_NAME = 'sales' THEN
+            -- We need to check if this sale was for FUEL.
+            PERFORM 1 FROM public.products WHERE id = v_prod_id AND product_type = 'fuel';
+            IF FOUND THEN RETURN OLD; END IF; -- Exit, do not touch stock
+        END IF;
+
     ELSE
-        v_prod_id := NEW.product_id;
+        -- Handle Product ID lookup
+        IF TG_TABLE_NAME = 'nozzle_readings' THEN
+             SELECT product_id INTO v_prod_id FROM public.nozzles WHERE id = NEW.nozzle_id;
+        ELSE
+             v_prod_id := NEW.product_id;
+        END IF;
+
         v_ref_id := NEW.id;
-        v_qty_delta := CASE 
-            WHEN TG_TABLE_NAME = 'purchases' THEN NEW.quantity 
-            ELSE -NEW.quantity 
-        END;
+
+        -- If Inserting/Updating a SALES record for FUEL, ignore it (Nozzle Reading handles stock)
+        IF TG_TABLE_NAME = 'sales' THEN
+             -- Check if this is a fuel sale check
+             IF (NEW.sale_type = 'fuel') THEN 
+                RETURN NEW; -- Exit immediately, do not touch stock
+             END IF;
+        END IF;
+
+        IF TG_TABLE_NAME = 'nozzle_readings' THEN
+            v_qty_delta := -NEW.quantity_sold; -- Sales are negative
+        ELSE
+            v_qty_delta := CASE 
+                WHEN TG_TABLE_NAME = 'purchases' THEN NEW.quantity 
+                ELSE -NEW.quantity 
+            END;
+        END IF;
     END IF;
 
     -- Handle UPDATE delta
     IF (TG_OP = 'UPDATE') THEN
-        v_qty_delta := CASE 
-            WHEN TG_TABLE_NAME = 'purchases' THEN NEW.quantity - OLD.quantity
-            ELSE OLD.quantity - NEW.quantity
-        END;
+        IF TG_TABLE_NAME = 'nozzle_readings' THEN
+             v_qty_delta := OLD.quantity_sold - NEW.quantity_sold;
+        ELSE
+             v_qty_delta := CASE 
+                WHEN TG_TABLE_NAME = 'purchases' THEN NEW.quantity - OLD.quantity
+                ELSE OLD.quantity - NEW.quantity
+            END;
+        END IF;
     END IF;
 
     IF v_qty_delta = 0 THEN RETURN NEW; END IF;

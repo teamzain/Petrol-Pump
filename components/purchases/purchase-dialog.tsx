@@ -288,19 +288,8 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
           last_purchase_date: formData.purchase_date
         }).eq("id", item.product.id)
 
-        // Record Stock Movement
-        await supabase.from("stock_movements").insert({
-          product_id: item.product.id,
-          movement_type: "purchase",
-          quantity: item.quantity,
-          unit_price: item.unitPrice,
-          balance_after: newStock,
-          weighted_avg_after: item.unitPrice,
-          supplier_id: formData.supplier_id,
-          reference_type: "purchase",
-          reference_number: formData.invoice_number,
-          notes: `Inv# ${formData.invoice_number}`
-        })
+        // Stock Movement is now handled by database trigger (trg_universal_stock_purchases)
+        // This prevents duplicate entries in the stock_movements table
 
         // Price History
         if (Math.abs(item.unitPrice - item.product.purchase_price) > 0.01) {
