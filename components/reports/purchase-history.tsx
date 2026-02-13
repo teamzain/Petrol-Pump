@@ -110,52 +110,54 @@ export function PurchaseHistoryReport({ filters, onDetailClick, onDataLoaded }: 
                     <CardDescription>Detailed list of all stock arrivals and orders</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Date</TableHead>
-                                <TableHead>Invoice #</TableHead>
-                                <TableHead>Supplier</TableHead>
-                                <TableHead className="text-right">Total Amount</TableHead>
-                                <TableHead className="text-center">Status</TableHead>
-                                <TableHead className="text-center">Payment</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {orders.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No purchases found</TableCell></TableRow>
-                            ) : (
-                                orders.map((order) => (
-                                    <TableRow
-                                        key={order.id}
-                                        className="cursor-pointer hover:bg-muted/30 transition-colors"
-                                        onClick={() => onDetailClick?.(order)}
-                                    >
-                                        <TableCell className="text-xs font-medium">
-                                            {format(new Date(order.purchase_date), "MMM dd, yyyy")}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="font-bold text-xs">{order.invoice_number}</div>
-                                        </TableCell>
-                                        <TableCell className="text-xs">{order.suppliers?.supplier_name}</TableCell>
-                                        <TableCell className="text-right font-bold text-xs">
-                                            Rs. {Number(order.total_amount).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant={order.status === 'completed' ? 'default' : 'secondary'} className="text-[10px] h-4">
-                                                {order.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant="outline" className="text-[10px] h-4 capitalize">
-                                                {order.payment_method?.replace('_', ' ')}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                                    <TableHead className="whitespace-nowrap">Invoice #</TableHead>
+                                    <TableHead className="whitespace-nowrap">Supplier</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Total Amount</TableHead>
+                                    <TableHead className="text-center whitespace-nowrap">Status</TableHead>
+                                    <TableHead className="text-center whitespace-nowrap">Payment</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {orders.length === 0 ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No purchases found</TableCell></TableRow>
+                                ) : (
+                                    orders.map((order) => (
+                                        <TableRow
+                                            key={order.id}
+                                            className="cursor-pointer hover:bg-muted/30 transition-colors"
+                                            onClick={() => onDetailClick?.(order)}
+                                        >
+                                            <TableCell className="text-xs font-medium whitespace-nowrap">
+                                                {format(new Date(order.purchase_date), "MMM dd, yyyy")}
+                                            </TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                <div className="font-bold text-xs">{order.invoice_number}</div>
+                                            </TableCell>
+                                            <TableCell className="text-xs whitespace-nowrap">{order.suppliers?.supplier_name}</TableCell>
+                                            <TableCell className="text-right font-bold text-xs whitespace-nowrap">
+                                                Rs. {Number(order.total_amount).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-center whitespace-nowrap">
+                                                <Badge variant={order.status === 'completed' ? 'default' : 'secondary'} className="text-[10px] h-4">
+                                                    {order.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-center whitespace-nowrap">
+                                                <Badge variant="outline" className="text-[10px] h-4 capitalize">
+                                                    {order.payment_method?.replace('_', ' ')}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

@@ -29,9 +29,9 @@ import {
   Save,
   RefreshCw,
   ArrowRightLeft,
-  PlusCircle,
-  Loader2
+  PlusCircle
 } from "lucide-react"
+import { BrandLoader as Loader, BrandLoader } from "@/components/ui/brand-loader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Dialog,
@@ -441,18 +441,18 @@ export default function BalanceManagementPage() {
       )}
 
       {/* Action Buttons Row */}
-      <div className="flex justify-end gap-2">
+      <div className="flex flex-col sm:flex-row justify-end gap-2">
         <Button onClick={() => {
           setTransactionType("deposit")
           setTransactionDialogOpen(true)
-        }}>
+        }} className="w-full sm:w-auto">
           <ArrowRightLeft className="mr-2 h-4 w-4" />
           Transfer to Bank
         </Button>
         <Button variant="outline" onClick={() => {
           setTransactionType("add_cash")
           setTransactionDialogOpen(true)
-        }}>
+        }} className="w-full sm:w-auto">
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Balance
         </Button>
@@ -553,7 +553,7 @@ export default function BalanceManagementPage() {
             }
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-4">
+        <CardContent className="flex flex-col sm:flex-row gap-2 sm:gap-4">
           <Button
             onClick={() => {
               setOpeningBalances({
@@ -564,14 +564,16 @@ export default function BalanceManagementPage() {
             }}
             disabled={todayBalance?.is_closed}
             variant={todayBalance?.is_closed ? "secondary" : "default"}
+            className="w-full sm:w-auto"
           >
             <Save className="mr-2 h-4 w-4" />
-            Set Opening Balance
+            Set Opening
           </Button>
           <Button
             onClick={() => setCloseDialogOpen(true)}
             disabled={!todayBalance || todayBalance?.is_closed}
             variant="outline"
+            className="w-full sm:w-auto"
           >
             <Lock className="mr-2 h-4 w-4" />
             Close Day
@@ -579,6 +581,7 @@ export default function BalanceManagementPage() {
           <Button
             onClick={fetchBalances}
             variant="ghost"
+            className="w-full sm:w-auto"
           >
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh
@@ -597,7 +600,7 @@ export default function BalanceManagementPage() {
         <CardContent>
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <Loader size="lg" />
             </div>
           ) : balanceHistory.length === 0 ? (
             <div className="flex h-32 flex-col items-center justify-center text-center">
@@ -612,16 +615,16 @@ export default function BalanceManagementPage() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Cash Opening</TableHead>
-                    <TableHead className="text-right">Cash Closing</TableHead>
-                    <TableHead className="text-right">Bank Opening</TableHead>
-                    <TableHead className="text-right">Bank Closing</TableHead>
-                    <TableHead>Status</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Cash Opening</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Cash Closing</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Bank Opening</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Bank Closing</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -740,7 +743,7 @@ export default function BalanceManagementPage() {
               Cancel
             </Button>
             <Button className="w-full" onClick={handleSetOpeningBalance} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Opening Balance"}
+              {saving ? <Loader size="xs" /> : "Save Opening Balance"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -780,7 +783,7 @@ export default function BalanceManagementPage() {
               Cancel
             </Button>
             <Button onClick={handleCloseDay} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Close Day"}
+              {saving ? <Loader size="xs" /> : "Close Day"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -869,7 +872,7 @@ export default function BalanceManagementPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setTransactionDialogOpen(false)}>Cancel</Button>
             <Button className="w-full" onClick={handleTransaction} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
+              {saving ? <Loader size="xs" /> : "Confirm"}
             </Button>
           </DialogFooter>
         </DialogContent>

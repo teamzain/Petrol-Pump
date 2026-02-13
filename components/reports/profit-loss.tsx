@@ -181,67 +181,69 @@ export function ProfitLossStatement({ filters, onDetailClick, onDataLoaded }: {
                     <CardTitle>Profit & Loss Statement</CardTitle>
                     <CardDescription>Consolidated financial performance for the period</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <div className="space-y-1">
-                        {/* REVENUE SECTION */}
-                        <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
-                            <span>Operating Revenue</span>
-                            <span>Amount (Rs.)</span>
-                        </div>
-                        <div className="px-6 py-3 border-b flex justify-between text-sm">
-                            <span>Fuel Sales (Petrol, Diesel, Hi-Octane)</span>
-                            <span className="font-medium">{report.revFuel.toLocaleString()}</span>
-                        </div>
-                        <div className="px-6 py-3 border-b flex justify-between text-sm">
-                            <span>General Product Sales</span>
-                            <span className="font-medium">{report.revProd.toLocaleString()}</span>
-                        </div>
-                        <div className="px-6 py-4 flex justify-between font-bold text-base bg-primary/5 text-primary">
-                            <span>Total Revenue</span>
-                            <span>{report.totalRev.toLocaleString()}</span>
-                        </div>
-
-                        <div className="h-4"></div>
-
-                        {/* COGS SECTION */}
-                        <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
-                            <span>Direct Costs</span>
-                            <span></span>
-                        </div>
-                        <div className="px-6 py-4 flex justify-between text-sm italic text-muted-foreground">
-                            <span>Cost of Goods Sold (Opening Stock + Purchases - Closing Stock)</span>
-                            <span>({report.cogs.toLocaleString()})</span>
-                        </div>
-                        <div className="px-6 py-4 flex justify-between font-bold text-base border-y-2 border-emerald-200 text-emerald-700">
-                            <span>Gross Profit</span>
-                            <span>{report.grossProfit.toLocaleString()}</span>
-                        </div>
-
-                        <div className="h-4"></div>
-
-                        {/* EXPENSES SECTION */}
-                        <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
-                            <span>Operating Expenses</span>
-                            <span></span>
-                        </div>
-                        <div className="px-6 py-4 flex justify-between text-sm text-rose-600 font-medium">
-                            <span>General & Administrative Expenses</span>
-                            <span>({report.totalExp.toLocaleString()})</span>
-                        </div>
-
-                        <div className="h-4"></div>
-
-                        {/* NET INCOME SECTION */}
-                        <div className={cn(
-                            "px-6 py-6 flex justify-between items-center rounded-xl",
-                            report.netProfit >= 0 ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
-                        )}>
-                            <div className="flex flex-col">
-                                <span className="text-xl font-black uppercase tracking-widest">Net Income</span>
-                                <span className="text-[10px] opacity-80 italic">After all operating deductions</span>
+                <CardContent className="p-0 sm:p-6">
+                    <div className="overflow-x-auto">
+                        <div className="min-w-[600px] space-y-1">
+                            {/* REVENUE SECTION */}
+                            <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
+                                <span>Operating Revenue</span>
+                                <span>Amount (Rs.)</span>
                             </div>
-                            <div className="text-3xl font-black font-mono">
-                                Rs. {report.netProfit.toLocaleString()}
+                            <div className="px-6 py-3 border-b flex justify-between text-sm">
+                                <span>Fuel Sales (Petrol, Diesel, Hi-Octane)</span>
+                                <span className="font-medium">{report.revFuel.toLocaleString()}</span>
+                            </div>
+                            <div className="px-6 py-3 border-b flex justify-between text-sm">
+                                <span>General Product Sales</span>
+                                <span className="font-medium">{report.revProd.toLocaleString()}</span>
+                            </div>
+                            <div className="px-6 py-4 flex justify-between font-bold text-base bg-primary/5 text-primary">
+                                <span>Total Revenue</span>
+                                <span>{report.totalRev.toLocaleString()}</span>
+                            </div>
+
+                            <div className="h-4"></div>
+
+                            {/* COGS SECTION */}
+                            <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
+                                <span>Direct Costs</span>
+                                <span></span>
+                            </div>
+                            <div className="px-6 py-4 flex justify-between text-sm italic text-muted-foreground">
+                                <span>Cost of Goods Sold (Opening Stock + Purchases - Closing Stock)</span>
+                                <span>({report.cogs.toLocaleString()})</span>
+                            </div>
+                            <div className="px-6 py-4 flex justify-between font-bold text-base border-y-2 border-emerald-200 text-emerald-700">
+                                <span>Gross Profit</span>
+                                <span>{report.grossProfit.toLocaleString()}</span>
+                            </div>
+
+                            <div className="h-4"></div>
+
+                            {/* EXPENSES SECTION */}
+                            <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
+                                <span>Operating Expenses</span>
+                                <span></span>
+                            </div>
+                            <div className="px-6 py-4 flex justify-between text-sm text-rose-600 font-medium">
+                                <span>General & Administrative Expenses</span>
+                                <span>({report.totalExp.toLocaleString()})</span>
+                            </div>
+
+                            <div className="h-4"></div>
+
+                            {/* NET INCOME SECTION */}
+                            <div className={cn(
+                                "px-6 py-6 flex justify-between items-center rounded-xl",
+                                report.netProfit >= 0 ? "bg-emerald-600 text-white" : "bg-rose-600 text-white"
+                            )}>
+                                <div className="flex flex-col">
+                                    <span className="text-xl font-black uppercase tracking-widest">Net Income</span>
+                                    <span className="text-[10px] opacity-80 italic">After all operating deductions</span>
+                                </div>
+                                <div className="text-3xl font-black font-mono">
+                                    Rs. {report.netProfit.toLocaleString()}
+                                </div>
                             </div>
                         </div>
                     </div>

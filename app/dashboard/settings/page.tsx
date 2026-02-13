@@ -17,7 +17,12 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Moon, Sun, Laptop, User, Shield, Info, Check, Loader2, Landmark, Plus, Edit2, Trash2, Power } from "lucide-react"
+import {
+    Moon, Sun, Laptop, User, Shield, Info, Check, Landmark, Plus, Edit2, Trash2, Power, RefreshCw,
+    ArrowRightLeft,
+    PlusCircle
+} from "lucide-react"
+import { BrandLoader as Loader } from "@/components/ui/brand-loader"
 
 interface BankAccount {
     id: string
@@ -257,26 +262,28 @@ export default function SettingsPage() {
             </div>
 
             <Tabs defaultValue="appearance" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="appearance" className="flex items-center gap-2">
-                        <Sun className="w-4 h-4" /> Appearance
-                    </TabsTrigger>
-                    <TabsTrigger value="profile" className="flex items-center gap-2">
-                        <User className="w-4 h-4" /> Profile
-                    </TabsTrigger>
-                    <TabsTrigger value="security" className="flex items-center gap-2">
-                        <Shield className="w-4 h-4" /> Security
-                    </TabsTrigger>
-                    <TabsTrigger value="system" className="flex items-center gap-2">
-                        <Shield className="w-4 h-4" /> System
-                    </TabsTrigger>
-                    <TabsTrigger value="banks" className="flex items-center gap-2">
-                        <Landmark className="w-4 h-4" /> Banks
-                    </TabsTrigger>
-                    <TabsTrigger value="about" className="flex items-center gap-2">
-                        <Info className="w-4 h-4" /> About
-                    </TabsTrigger>
-                </TabsList>
+                <div className="overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+                    <TabsList className="w-fit sm:w-full inline-flex">
+                        <TabsTrigger value="appearance" className="flex items-center gap-2 whitespace-nowrap">
+                            <Sun className="w-4 h-4" /> Appearance
+                        </TabsTrigger>
+                        <TabsTrigger value="profile" className="flex items-center gap-2 whitespace-nowrap">
+                            <User className="w-4 h-4" /> Profile
+                        </TabsTrigger>
+                        <TabsTrigger value="security" className="flex items-center gap-2 whitespace-nowrap">
+                            <Shield className="w-4 h-4" /> Security
+                        </TabsTrigger>
+                        <TabsTrigger value="system" className="flex items-center gap-2 whitespace-nowrap">
+                            <Shield className="w-4 h-4" /> System
+                        </TabsTrigger>
+                        <TabsTrigger value="banks" className="flex items-center gap-2 whitespace-nowrap">
+                            <Landmark className="w-4 h-4" /> Banks
+                        </TabsTrigger>
+                        <TabsTrigger value="about" className="flex items-center gap-2 whitespace-nowrap">
+                            <Info className="w-4 h-4" /> About
+                        </TabsTrigger>
+                    </TabsList>
+                </div>
 
                 {message && (
                     <Alert variant={message.type === 'error' ? 'destructive' : 'default'} className={message.type === 'success' ? 'border-green-500 text-green-700 bg-green-50' : ''}>
@@ -296,9 +303,9 @@ export default function SettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="grid gap-4 pt-4">
-                            <div className="grid grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                 <div
-                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground ${theme === 'light' ? 'border-primary bg-accent' : 'border-muted'}`}
+                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground transition-all ${theme === 'light' ? 'border-primary bg-accent' : 'border-muted'}`}
                                     onClick={() => setTheme("light")}
                                 >
                                     <div className="mb-2 rounded-md bg-[#ecedef] p-2 h-20 w-full" />
@@ -307,7 +314,7 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
                                 <div
-                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground ${theme === 'dark' ? 'border-primary bg-accent' : 'border-muted'}`}
+                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground transition-all ${theme === 'dark' ? 'border-primary bg-accent' : 'border-muted'}`}
                                     onClick={() => setTheme("dark")}
                                 >
                                     <div className="mb-2 rounded-md bg-slate-950 p-2 h-20 w-full" />
@@ -316,7 +323,7 @@ export default function SettingsPage() {
                                     </div>
                                 </div>
                                 <div
-                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground ${theme === 'system' ? 'border-primary bg-accent' : 'border-muted'}`}
+                                    className={`cursor-pointer rounded-lg border-2 p-4 hover:bg-accent hover:text-accent-foreground transition-all ${theme === 'system' ? 'border-primary bg-accent' : 'border-muted'}`}
                                     onClick={() => setTheme("system")}
                                 >
                                     <div className="mb-2 rounded-md bg-gradient-to-r from-[#ecedef] to-slate-950 p-2 h-20 w-full" />
@@ -369,8 +376,7 @@ export default function SettingsPage() {
                             </CardContent>
                             <CardFooter>
                                 <Button type="submit" disabled={loading}>
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Save Changes
+                                    {loading ? <Loader size="xs" /> : "Update Profile"}
                                 </Button>
                             </CardFooter>
                         </form>
@@ -409,8 +415,7 @@ export default function SettingsPage() {
                             </CardContent>
                             <CardFooter>
                                 <Button type="submit" disabled={loading || !passwords.new}>
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Update Password
+                                    {loading ? <Loader size="xs" /> : "Update Password"}
                                 </Button>
                             </CardFooter>
                         </form>
@@ -558,8 +563,7 @@ export default function SettingsPage() {
                                 </div>
                                 <DialogFooter className="pt-2">
                                     <Button type="submit" disabled={loading} className="w-full h-12 rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
-                                        {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
-                                        {isEditingBank ? 'Update Bank Account' : 'Register Bank Account'}
+                                        {loading ? <Loader size="xs" /> : (isEditingBank ? 'Update Bank Account' : 'Register Bank Account')}
                                     </Button>
                                 </DialogFooter>
                             </form>
@@ -577,7 +581,7 @@ export default function SettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                                 <div>
                                     <p className="font-medium">App Name</p>
                                     <p className="text-muted-foreground">Petrol Pump Manager</p>

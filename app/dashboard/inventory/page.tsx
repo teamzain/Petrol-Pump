@@ -18,6 +18,7 @@ import {
   ExternalLink,
 } from "lucide-react"
 import Link from "next/link"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -127,7 +128,7 @@ export default function InventoryPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <BrandLoader size="lg" />
       </div>
     )
   }
@@ -380,14 +381,14 @@ export default function InventoryPage() {
                 </Button>
               </Link>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0 sm:p-6">
               {movements.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <Clock className="h-12 w-12 text-muted-foreground/50" />
                   <p className="mt-2 text-sm text-muted-foreground">No stock movements recorded yet</p>
                 </div>
               ) : (
-                <div className="rounded-md border">
+                <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>

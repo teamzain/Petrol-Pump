@@ -135,54 +135,56 @@ export function SupplierPerformanceReport({ filters, onDetailClick, onDataLoaded
                     <CardDescription>Lifetime vs. Period statistics and financial position</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Supplier Info</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead className="text-right">Period Purchases</TableHead>
-                                <TableHead className="text-right">Lifetime Total</TableHead>
-                                <TableHead className="text-right">Outstanding Dues</TableHead>
-                                <TableHead className="text-center">Status</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {suppliers.map((s) => (
-                                <TableRow key={s.id}>
-                                    <TableCell>
-                                        <div className="font-bold">{s.supplier_name}</div>
-                                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                                            <Phone className="h-3 w-3" /> {s.phone_number}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant="outline" className="text-[10px] capitalize">
-                                            {s.supplier_type.replace('_', ' ')}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right font-mono text-xs">
-                                        Rs. {s.periodPurchases.toLocaleString()}
-                                    </TableCell>
-                                    <TableCell className="text-right font-bold text-xs text-blue-600">
-                                        Rs. {Number(s.total_purchases || 0).toLocaleString()}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <span className={cn(
-                                            "font-bold font-mono",
-                                            s.outstandingDues > 0 ? "text-rose-600" : "text-emerald-600"
-                                        )}>
-                                            Rs. {s.outstandingDues.toLocaleString()}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                        <Badge variant={s.status === 'active' ? 'default' : 'secondary'} className="h-5">
-                                            {s.status}
-                                        </Badge>
-                                    </TableCell>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="whitespace-nowrap">Supplier Info</TableHead>
+                                    <TableHead className="whitespace-nowrap">Type</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Period Purchases</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Lifetime Total</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Outstanding Dues</TableHead>
+                                    <TableHead className="text-center whitespace-nowrap">Status</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {suppliers.map((s) => (
+                                    <TableRow key={s.id}>
+                                        <TableCell className="whitespace-nowrap">
+                                            <div className="font-bold">{s.supplier_name}</div>
+                                            <div className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                                                <Phone className="h-3 w-3" /> {s.phone_number}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="whitespace-nowrap">
+                                            <Badge variant="outline" className="text-[10px] capitalize">
+                                                {s.supplier_type.replace('_', ' ')}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs whitespace-nowrap">
+                                            Rs. {s.periodPurchases.toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-right font-bold text-xs text-blue-600 whitespace-nowrap">
+                                            Rs. {Number(s.total_purchases || 0).toLocaleString()}
+                                        </TableCell>
+                                        <TableCell className="text-right whitespace-nowrap">
+                                            <span className={cn(
+                                                "font-bold font-mono",
+                                                s.outstandingDues > 0 ? "text-rose-600" : "text-emerald-600"
+                                            )}>
+                                                Rs. {s.outstandingDues.toLocaleString()}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-center whitespace-nowrap">
+                                            <Badge variant={s.status === 'active' ? 'default' : 'secondary'} className="h-5">
+                                                {s.status}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

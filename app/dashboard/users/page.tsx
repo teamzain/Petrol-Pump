@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table"
 import { createClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
-import { Users, Search, MoreVertical, Shield, ShieldAlert, UserCog, Loader2 } from "lucide-react"
+import { Users, Search, MoreVertical, Shield, ShieldAlert, UserCog } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import {
     DropdownMenu,
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { BrandLoader } from "@/components/ui/brand-loader"
 
 
 interface UserProfile {
@@ -166,8 +167,8 @@ export default function UsersPage() {
                         {/* <Button>Add User</Button> */}
                     </div>
                 </CardHeader>
-                <CardContent>
-                    <div className="mb-4">
+                <CardContent className="p-0 sm:p-6">
+                    <div className="mb-4 px-4 sm:px-0 mt-4 sm:mt-0">
                         <div className="relative max-w-sm">
                             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <Input
@@ -179,15 +180,15 @@ export default function UsersPage() {
                         </div>
                     </div>
 
-                    <div className="rounded-md border">
+                    <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
                                 <TableRow>
-                                    <TableHead>Name</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Last Login</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
+                                    <TableHead className="whitespace-nowrap">Name</TableHead>
+                                    <TableHead className="whitespace-nowrap">Role</TableHead>
+                                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                                    <TableHead className="whitespace-nowrap">Last Login</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -195,11 +196,8 @@ export default function UsersPage() {
                                     <TableRow>
                                         <TableCell colSpan={5} className="h-32">
                                             <div className="flex flex-col items-center justify-center gap-3">
-                                                <div className="relative">
-                                                    <div className="h-10 w-10 rounded-full border-2 border-primary/10 border-t-primary animate-spin" />
-                                                    <div className="absolute inset-0 flex items-center justify-center">
-                                                        <Users className="h-4 w-4 text-primary/40" />
-                                                    </div>
+                                                <div className="flex items-center justify-center py-20">
+                                                    <BrandLoader size="lg" />
                                                 </div>
                                                 <span className="text-sm text-muted-foreground font-medium animate-pulse">Loading user directory...</span>
                                             </div>
@@ -214,26 +212,26 @@ export default function UsersPage() {
                                 ) : (
                                     filteredUsers.map((user) => (
                                         <TableRow key={user.id}>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap">
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">{user.full_name}</span>
                                                     <span className="text-xs text-muted-foreground">{user.email}</span>
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap">
                                                 <Badge variant={user.role === 'admin' ? 'default' : user.role === 'manager' ? 'secondary' : 'outline'}>
                                                     {user.role}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap">
                                                 <Badge variant={user.status === 'active' ? 'outline' : 'destructive'} className={user.status === 'active' ? 'text-green-600 border-green-600' : ''}>
                                                     {user.status}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className="whitespace-nowrap">
                                                 {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
                                             </TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right whitespace-nowrap">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" size="icon">
@@ -296,7 +294,7 @@ export default function UsersPage() {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleUpdateUser} disabled={saving} className="min-w-[120px]">
-                            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update User"}
+                            {saving ? <BrandLoader size="xs" /> : "Update User"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

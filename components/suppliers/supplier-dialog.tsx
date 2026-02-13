@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { AlertCircle } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 
 type Supplier = {
   id: string
@@ -277,10 +278,7 @@ export function SupplierDialog({ open, onOpenChange, supplier, onSaved }: Props)
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading ? (
-                <span className="flex items-center gap-2">
-                  <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </span>
+                <BrandLoader size="xs" />
               ) : supplier ? (
                 "Update Supplier"
               ) : (

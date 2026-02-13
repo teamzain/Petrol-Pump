@@ -17,6 +17,7 @@ import {
     Printer,
     Wallet
 } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { format, startOfMonth, endOfMonth, startOfToday, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear } from "date-fns"
 
 import { Skeleton } from "@/components/ui/skeleton"
@@ -263,7 +264,11 @@ export default function ReportsPage() {
                         <span className="hidden sm:inline">Export CSV</span>
                     </Button>
                     <Button variant="outline" size="sm" onClick={refreshData} disabled={isRefreshing}>
-                        <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshing && "animate-spin")} />
+                        {isRefreshing ? (
+                            <BrandLoader size="xs" className="mr-2" />
+                        ) : (
+                            <RefreshCcw className="mr-2 h-4 w-4" />
+                        )}
                         Refresh
                     </Button>
                 </div>
@@ -451,7 +456,7 @@ export default function ReportsPage() {
                     {isFiltersChanging && (
                         <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/60 backdrop-blur-[2px] rounded-xl animate-in fade-in duration-300">
                             <div className="flex flex-col items-center gap-4">
-                                <RefreshCcw className="h-10 w-10 text-primary animate-spin" />
+                                <BrandLoader size="lg" />
                                 <p className="text-sm font-medium animate-pulse">Generating Report...</p>
                             </div>
                         </div>

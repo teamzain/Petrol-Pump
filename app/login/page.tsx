@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Fuel, Eye, EyeOff, Lock, User, AlertCircle } from "lucide-react"
+import { BrandLoader as Loader } from "@/components/ui/brand-loader"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -234,7 +235,7 @@ export default function LoginPage() {
                 >
                   {isLoading ? (
                     <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      <Loader size="xs" />
                       Signing in...
                     </span>
                   ) : (
