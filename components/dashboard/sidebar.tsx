@@ -27,7 +27,9 @@ import {
   ChevronDown,
   Wallet,
   Gauge,
+  Download,
 } from "lucide-react"
+import { exportAllData } from "@/lib/backup"
 
 type NavItem = {
   title: string
@@ -102,6 +104,13 @@ export function DashboardSidebar() {
     await supabase.auth.signOut()
     router.push("/login")
     router.refresh()
+  }
+
+  const handleBackup = async () => {
+    const { success } = await exportAllData()
+    if (success) {
+      // Optional: Show success toast if available
+    }
   }
 
   const isActive = (href: string) => {
@@ -229,11 +238,19 @@ export function DashboardSidebar() {
             ))}
           </nav>
 
-          {/* Logout */}
-          <div className="p-4 border-t border-sidebar-border">
+          {/* Backup & Logout */}
+          <div className="p-4 border-t border-sidebar-border space-y-1">
             <Button
               variant="ghost"
               className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              onClick={handleBackup}
+            >
+              <Download className="w-4 h-4 mr-3" />
+              Data Backup
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent text-destructive hover:text-destructive"
               onClick={handleLogout}
             >
               <LogOut className="w-4 h-4 mr-3" />
