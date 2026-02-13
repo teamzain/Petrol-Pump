@@ -113,14 +113,16 @@ export function DashboardSidebar() {
 
   return (
     <>
-      {/* Mobile menu button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border shadow-sm"
-      >
-        {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
+      {/* Mobile open button */}
+      {!isOpen && (
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-md bg-card border border-border shadow-sm animate-in fade-in zoom-in duration-200"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Overlay */}
       {isOpen && (
@@ -137,7 +139,15 @@ export function DashboardSidebar() {
           isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}
       >
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full relative">
+          {/* Mobile close button (right-aligned inside sidebar) */}
+          <button
+            type="button"
+            onClick={() => setIsOpen(false)}
+            className="lg:hidden absolute top-3 right-3 z-50 p-2 text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
           {/* Logo */}
           <div className="p-4 border-b border-sidebar-border">
             <Link href="/dashboard" className="flex items-center gap-3">

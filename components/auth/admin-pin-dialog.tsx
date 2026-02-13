@@ -13,7 +13,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
-import { Lock, Loader2 } from "lucide-react"
+import { Lock } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 
 interface AdminPinDialogProps {
     open: boolean
@@ -103,7 +104,7 @@ export function AdminPinDialog({
                             Cancel
                         </Button>
                         <Button type="submit" disabled={!pin || loading}>
-                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {loading && <BrandLoader size="xs" className="mr-2" />}
                             Authorize
                         </Button>
                     </DialogFooter>

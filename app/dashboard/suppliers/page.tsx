@@ -22,6 +22,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Search, Pencil, Trash2, Truck, Filter } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { SupplierDialog } from "@/components/suppliers/supplier-dialog"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 
@@ -201,19 +202,14 @@ export default function SuppliersPage() {
             {filteredSuppliers.length} supplier(s) found
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin shadow-lg shadow-primary/5" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Truck className="h-6 w-6 text-primary animate-pulse" />
-                </div>
-              </div>
+              <BrandLoader size="lg" className="mb-4" />
               <p className="mt-4 text-sm text-muted-foreground font-medium animate-pulse">Loading suppliers...</p>
             </div>
           ) : filteredSuppliers.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="text-center py-12 px-4">
               <Truck className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-1">
                 No suppliers found
@@ -235,18 +231,18 @@ export default function SuppliersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Supplier Name</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Total Purchases</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Supplier Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Contact</TableHead>
+                    <TableHead className="whitespace-nowrap">Type</TableHead>
+                    <TableHead className="whitespace-nowrap">Total Purchases</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredSuppliers.map((supplier) => (
                     <TableRow key={supplier.id}>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div>
                           <p className="font-medium">{supplier.supplier_name}</p>
                           {supplier.address && (
@@ -256,7 +252,7 @@ export default function SuppliersPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <div>
                           <p>{supplier.phone_number}</p>
                           {supplier.contact_person && (
@@ -266,15 +262,15 @@ export default function SuppliersPage() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant="outline">
                           {supplierTypeLabels[supplier.supplier_type] || supplier.supplier_type}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         Rs. {supplier.total_purchases.toLocaleString("en-PK")}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge
                           variant={supplier.status === "active" ? "default" : "secondary"}
                         >

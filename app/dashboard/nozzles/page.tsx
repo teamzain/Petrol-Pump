@@ -30,8 +30,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Fuel,
-  Loader2
 } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Dialog,
@@ -333,16 +333,11 @@ export default function NozzlesPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 animate-in fade-in duration-500">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin shadow-lg shadow-primary/5" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Gauge className="h-6 w-6 text-primary animate-pulse" />
-                </div>
-              </div>
-              <p className="mt-4 text-sm text-muted-foreground font-medium animate-pulse">Syncing nozzle configurations...</p>
+              <BrandLoader size="lg" className="mb-4" />
+              <p className="text-sm text-muted-foreground font-medium animate-pulse">Syncing nozzle configurations...</p>
             </div>
           ) : nozzles.length === 0 ? (
             <div className="flex h-32 flex-col items-center justify-center text-center">
@@ -357,27 +352,27 @@ export default function NozzlesPage() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Nozzle Name</TableHead>
-                    <TableHead>Pump #</TableHead>
-                    <TableHead>Side</TableHead>
-                    <TableHead>Fuel Type</TableHead>
-                    <TableHead className="text-right">Initial Reading</TableHead>
-                    <TableHead className="text-right">Current Reading</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="whitespace-nowrap">Nozzle Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Pump #</TableHead>
+                    <TableHead className="whitespace-nowrap">Side</TableHead>
+                    <TableHead className="whitespace-nowrap">Fuel Type</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Initial Reading</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Current Reading</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {nozzles.map((nozzle) => (
                     <TableRow key={nozzle.id}>
-                      <TableCell className="font-medium">{nozzle.nozzle_number}</TableCell>
-                      <TableCell>{nozzle.pump_number || "-"}</TableCell>
-                      <TableCell className="capitalize">{nozzle.nozzle_side || "-"}</TableCell>
-                      <TableCell>
+                      <TableCell className="font-medium whitespace-nowrap">{nozzle.nozzle_number}</TableCell>
+                      <TableCell className="whitespace-nowrap">{nozzle.pump_number || "-"}</TableCell>
+                      <TableCell className="capitalize whitespace-nowrap">{nozzle.nozzle_side || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge
                           variant="outline"
                           className={getNozzleBadgeColor(nozzle.products?.product_name || "")}
@@ -385,13 +380,13 @@ export default function NozzlesPage() {
                           {nozzle.products?.product_name}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono whitespace-nowrap">
                         {Number(nozzle.initial_reading || 0).toLocaleString()}
                       </TableCell>
-                      <TableCell className="text-right font-mono">
+                      <TableCell className="text-right font-mono whitespace-nowrap">
                         {Number(nozzle.current_reading || 0).toLocaleString()}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {nozzle.status === "active" ? (
                           <Badge variant="secondary" className="bg-primary/10 text-primary">
                             Active
@@ -400,7 +395,7 @@ export default function NozzlesPage() {
                           <Badge variant="outline">Inactive</Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"
@@ -578,7 +573,7 @@ export default function NozzlesPage() {
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving} className="min-w-[120px]">
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : selectedNozzle ? "Update Nozzle" : "Add Nozzle"}
+              {saving ? <BrandLoader size="xs" /> : (selectedNozzle ? "Update Nozzle" : "Add Nozzle")}
             </Button>
           </DialogFooter>
         </DialogContent>

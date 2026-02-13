@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Package, AlertCircle } from "lucide-react"
+import { Droplet, AlertCircle, Package } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface OilProductDialogProps {
@@ -343,8 +344,7 @@ export function OilProductDialog({ open, onOpenChange, product, onSuccess }: Oil
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? "Update Product" : "Add Product"}
+              {loading ? <BrandLoader size="xs" /> : (isEditing ? "Update Product" : "Add Product")}
             </Button>
           </DialogFooter>
         </form>

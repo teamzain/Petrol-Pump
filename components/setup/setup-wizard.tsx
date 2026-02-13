@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { 
-  Fuel, Building2, Wallet, CheckCircle, 
-  ArrowLeft, ArrowRight, AlertCircle 
+import {
+  Fuel, Building2, Wallet, CheckCircle,
+  ArrowLeft, ArrowRight, AlertCircle
 } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { cn } from "@/lib/utils"
 
 type Step = {
@@ -63,7 +64,7 @@ export function SetupWizard() {
 
   const validateStep = () => {
     setError(null)
-    
+
     if (currentStep === 1) {
       if (!pumpInfo.pumpName.trim()) {
         setError("Pump name is required")
@@ -188,8 +189,8 @@ export function SetupWizard() {
                       currentStep === step.id
                         ? "bg-primary border-primary text-primary-foreground"
                         : currentStep > step.id
-                        ? "bg-primary/20 border-primary text-primary"
-                        : "bg-muted border-border text-muted-foreground"
+                          ? "bg-primary/20 border-primary text-primary"
+                          : "bg-muted border-border text-muted-foreground"
                     )}
                   >
                     {currentStep > step.id ? (
@@ -299,7 +300,7 @@ export function SetupWizard() {
               <div className="space-y-6">
                 <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
                   <p>
-                    Enter your current cash in hand and bank balance. 
+                    Enter your current cash in hand and bank balance.
                     This will be used as the starting point for all financial tracking.
                   </p>
                 </div>
@@ -403,7 +404,7 @@ export function SetupWizard() {
                 <Button onClick={handleComplete} disabled={isLoading}>
                   {isLoading ? (
                     <span className="flex items-center gap-2">
-                      <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      <BrandLoader size="xs" />
                       Completing...
                     </span>
                   ) : (

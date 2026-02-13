@@ -285,42 +285,44 @@ export function DailySummaryReport({ filters, onDetailClick, onDataLoaded }: {
 
                             <div className="space-y-3">
                                 <h4 className="text-sm font-semibold">Recent Stock Movements</h4>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-muted/50">
-                                            <TableHead>Product</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead className="text-right">Qty</TableHead>
-                                            <TableHead className="text-right">Balance After</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {data.stockMovements.length === 0 ? (
-                                            <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No movements recorded</TableCell></TableRow>
-                                        ) : (
-                                            data.stockMovements.map((move: any) => (
-                                                <TableRow
-                                                    key={move.id}
-                                                    className="cursor-pointer hover:bg-muted/30 transition-colors"
-                                                    onClick={() => onDetailClick?.(move)}
-                                                >
-                                                    <TableCell className="font-medium text-xs">{move.products?.product_name}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={move.movement_type === 'purchase' ? 'default' : 'secondary'} className="text-[10px] h-4">
-                                                            {move.movement_type.toUpperCase()}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right text-xs">
-                                                        {move.movement_type === 'purchase' ? '+' : '-'}{move.quantity}
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-mono text-xs">
-                                                        {move.balance_after}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                <div className="overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-muted/50">
+                                                <TableHead className="whitespace-nowrap">Product</TableHead>
+                                                <TableHead className="whitespace-nowrap">Type</TableHead>
+                                                <TableHead className="text-right whitespace-nowrap">Qty</TableHead>
+                                                <TableHead className="text-right whitespace-nowrap">Balance After</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {data.stockMovements.length === 0 ? (
+                                                <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No movements recorded</TableCell></TableRow>
+                                            ) : (
+                                                data.stockMovements.map((move: any) => (
+                                                    <TableRow
+                                                        key={move.id}
+                                                        className="cursor-pointer hover:bg-muted/30 transition-colors"
+                                                        onClick={() => onDetailClick?.(move)}
+                                                    >
+                                                        <TableCell className="font-medium text-xs whitespace-nowrap">{move.products?.product_name}</TableCell>
+                                                        <TableCell className="whitespace-nowrap">
+                                                            <Badge variant={move.movement_type === 'purchase' ? 'default' : 'secondary'} className="text-[10px] h-4">
+                                                                {move.movement_type.toUpperCase()}
+                                                            </Badge>
+                                                        </TableCell>
+                                                        <TableCell className="text-right text-xs whitespace-nowrap">
+                                                            {move.movement_type === 'purchase' ? '+' : '-'}{move.quantity}
+                                                        </TableCell>
+                                                        <TableCell className="text-right font-mono text-xs whitespace-nowrap">
+                                                            {move.balance_after}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
                             </div>
                         </div>
                     </CardContent>

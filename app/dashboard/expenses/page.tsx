@@ -16,11 +16,11 @@ import {
     FileText,
     PieChart as PieChartIcon,
     RefreshCw,
-    Loader2,
     Plus,
     Search,
     Filter,
 } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -269,13 +269,8 @@ export default function ExpensesPage() {
     if (loading) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-500">
-                <div className="relative">
-                    <div className="h-20 w-20 rounded-full border-4 border-primary/10 border-t-primary animate-spin shadow-2xl shadow-primary/10" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <Wallet className="h-8 w-8 text-primary animate-pulse" />
-                    </div>
-                </div>
-                <p className="mt-6 text-muted-foreground font-medium animate-pulse tracking-wide italic">Syncing expense records...</p>
+                <BrandLoader size="lg" className="mb-6" />
+                <p className="text-muted-foreground font-medium animate-pulse tracking-wide italic">Syncing expense records...</p>
             </div>
         )
     }
@@ -417,8 +412,8 @@ export default function ExpensesPage() {
                             </div>
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                                <Button onClick={handleSubmit} disabled={saving} className="min-w-[120px]">
-                                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record Expense"}
+                                <Button onClick={handleSubmit} disabled={saving} className="h-11">
+                                    {saving ? <BrandLoader size="xs" /> : "Record Expense"}
                                 </Button>
                             </DialogFooter>
                         </DialogContent>
@@ -517,66 +512,68 @@ export default function ExpensesPage() {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/20">
-                                <TableHead className="w-[120px]">Date</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Category</TableHead>
-                                <TableHead>Reference</TableHead>
-                                <TableHead className="text-center">Method</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredExpenses.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
-                                        No expenses found.
-                                    </TableCell>
+                <CardContent className="p-0 sm:p-6">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/20">
+                                    <TableHead className="w-[120px]">Date</TableHead>
+                                    <TableHead>Description</TableHead>
+                                    <TableHead>Category</TableHead>
+                                    <TableHead>Reference</TableHead>
+                                    <TableHead className="text-center">Method</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
                                 </TableRow>
-                            ) : (
-                                filteredExpenses.map((expense) => (
-                                    <TableRow key={expense.id} className="hover:bg-muted/10">
-                                        <TableCell className="font-medium">
-                                            {new Date(expense.expense_date).toLocaleDateString("en-PK", {
-                                                month: "short",
-                                                day: "numeric",
-                                                year: "numeric"
-                                            })}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="font-semibold">{expense.description}</span>
-                                                {expense.notes && <span className="text-[10px] text-muted-foreground italic line-clamp-1">{expense.notes}</span>}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant="secondary" className="font-normal border-primary/10">
-                                                {expense.category?.category_name}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="text-xs text-muted-foreground">
-                                            {expense.paid_to && <div className="font-medium text-slate-700">{expense.paid_to}</div>}
-                                            {expense.invoice_number && <div className="opacity-70">Ref: {expense.invoice_number}</div>}
-                                            {(!expense.paid_to && !expense.invoice_number) && "-"}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 font-medium capitalize">
-                                                {expense.payment_method.replace("_", " ")}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <span className="font-bold text-destructive">
-                                                {formatCurrency(Number(expense.amount))}
-                                            </span>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredExpenses.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                            No expenses found.
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : (
+                                    filteredExpenses.map((expense) => (
+                                        <TableRow key={expense.id} className="hover:bg-muted/10">
+                                            <TableCell className="font-medium whitespace-nowrap">
+                                                {new Date(expense.expense_date).toLocaleDateString("en-PK", {
+                                                    month: "short",
+                                                    day: "numeric",
+                                                    year: "numeric"
+                                                })}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col min-w-[150px]">
+                                                    <span className="font-semibold">{expense.description}</span>
+                                                    {expense.notes && <span className="text-[10px] text-muted-foreground italic line-clamp-1">{expense.notes}</span>}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="secondary" className="font-normal border-primary/10 whitespace-nowrap">
+                                                    {expense.category?.category_name}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                                                {expense.paid_to && <div className="font-medium text-slate-700">{expense.paid_to}</div>}
+                                                {expense.invoice_number && <div className="opacity-70">Ref: {expense.invoice_number}</div>}
+                                                {(!expense.paid_to && !expense.invoice_number) && "-"}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 font-medium capitalize whitespace-nowrap">
+                                                    {expense.payment_method.replace("_", " ")}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <span className="font-bold text-destructive whitespace-nowrap">
+                                                    {formatCurrency(Number(expense.amount))}
+                                                </span>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

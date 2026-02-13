@@ -24,7 +24,6 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Loader2,
   AlertCircle,
   CheckCircle2,
   Package,
@@ -35,6 +34,7 @@ import {
   X,
   CheckSquare,
 } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -452,7 +452,7 @@ export function OilPurchaseDialog({ open, onOpenChange, onSuccess }: OilPurchase
             <DialogFooter className="gap-2">
               <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full px-6">Cancel</Button>
               <Button onClick={handleSubmit} disabled={loading || cart.length === 0} className="rounded-full px-8 bg-primary hover:bg-primary/90 font-bold">
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />} Submit Invoice
+                {loading ? <BrandLoader size="xs" /> : <CheckSquare className="mr-2 h-4 w-4" />} Submit Invoice
               </Button>
             </DialogFooter>
           </>
@@ -479,13 +479,8 @@ export function OilPurchaseDialog({ open, onOpenChange, onSuccess }: OilPurchase
         )}
         {loading && (
           <div className="absolute inset-0 z-[50] flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-300 rounded-lg">
-            <div className="relative">
-              <div className="h-20 w-20 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-xl shadow-primary/10" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Package className="h-8 w-8 text-primary animate-pulse" />
-              </div>
-            </div>
-            <p className="mt-4 font-bold text-lg tracking-tight">Processing Invoice...</p>
+            <BrandLoader size="xl" className="mb-4" />
+            <p className="font-bold text-lg tracking-tight">Processing Invoice...</p>
             <p className="text-xs text-muted-foreground animate-pulse">Syncing stock and account balances</p>
           </div>
         )}

@@ -30,6 +30,7 @@ import {
   ArrowLeft,
 } from "lucide-react"
 import Link from "next/link"
+import { BrandLoader } from "@/components/ui/brand-loader"
 
 interface StockMovement {
   id: string
@@ -196,7 +197,7 @@ export default function StockMovementsPage() {
   if (loading) {
     return (
       <div className="flex h-96 items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <BrandLoader size="lg" />
       </div>
     )
   }

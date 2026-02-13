@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { createClient } from "@/lib/supabase/client"
 import { Plus, Search, Pencil, Trash2, Package, AlertTriangle } from "lucide-react"
 import { OilProductDialog } from "@/components/products/oil-product-dialog"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 
 interface OilProduct {
@@ -159,7 +160,7 @@ export default function OilProductsPage() {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -174,14 +175,14 @@ export default function OilProductsPage() {
 
           {loading ? (
             <div className="flex h-32 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <BrandLoader size="md" />
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex h-32 flex-col items-center justify-center text-center">
               <Package className="h-12 w-12 text-muted-foreground/50" />
               <p className="mt-2 text-sm text-muted-foreground">No products found</p>
-              <Button 
-                variant="link" 
+              <Button
+                variant="link"
                 className="mt-1"
                 onClick={() => { setSelectedProduct(null); setDialogOpen(true); }}
               >
@@ -189,36 +190,36 @@ export default function OilProductsPage() {
               </Button>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Product Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Stock</TableHead>
-                    <TableHead className="text-right">Min Level</TableHead>
-                    <TableHead className="text-right">Purchase Price</TableHead>
-                    <TableHead className="text-right">Selling Price</TableHead>
-                    <TableHead className="text-right">Stock Value</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="whitespace-nowrap">Product Name</TableHead>
+                    <TableHead className="whitespace-nowrap">Category</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Stock</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Min Level</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Purchase Price</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Selling Price</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Stock Value</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredProducts.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.product_name}</TableCell>
-                      <TableCell>{product.category || "-"}</TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="font-medium whitespace-nowrap">{product.product_name}</TableCell>
+                      <TableCell className="whitespace-nowrap">{product.category || "-"}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
                         <span className={product.current_stock <= product.minimum_stock_level ? "text-destructive font-medium" : ""}>
                           {product.current_stock} {product.unit}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right">{product.minimum_stock_level} {product.unit}</TableCell>
-                      <TableCell className="text-right">Rs. {product.purchase_price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">Rs. {product.selling_price.toFixed(2)}</TableCell>
-                      <TableCell className="text-right">Rs. {(product.stock_value || 0).toLocaleString()}</TableCell>
-                      <TableCell>
+                      <TableCell className="text-right whitespace-nowrap">{product.minimum_stock_level} {product.unit}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">Rs. {product.purchase_price.toFixed(2)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">Rs. {product.selling_price.toFixed(2)}</TableCell>
+                      <TableCell className="text-right whitespace-nowrap">Rs. {(product.stock_value || 0).toLocaleString()}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         {product.current_stock <= product.minimum_stock_level ? (
                           <Badge variant="destructive" className="gap-1">
                             <AlertTriangle className="h-3 w-3" />
@@ -230,7 +231,7 @@ export default function OilProductsPage() {
                           </Badge>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
                         <div className="flex justify-end gap-2">
                           <Button
                             variant="ghost"

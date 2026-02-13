@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { SetupWizard } from "@/components/setup/setup-wizard"
 
 export default function SetupPage() {
@@ -14,7 +15,7 @@ export default function SetupPage() {
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      
+
       if (!user) {
         router.push("/login")
         return
@@ -42,7 +43,7 @@ export default function SetupPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <BrandLoader size="lg" />
           <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>

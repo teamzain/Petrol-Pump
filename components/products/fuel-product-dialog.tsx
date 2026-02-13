@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2, Fuel, AlertCircle } from "lucide-react"
+import { Fuel, AlertCircle } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface FuelProductDialogProps {
@@ -275,8 +276,7 @@ export function FuelProductDialog({ open, onOpenChange, product, onSuccess }: Fu
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isEditing ? "Update Product" : "Add Product"}
+              {loading ? <BrandLoader size="xs" /> : (isEditing ? "Update Product" : "Add Product")}
             </Button>
           </DialogFooter>
         </form>

@@ -217,35 +217,37 @@ export function SalesAnalysisReport({ filters, onDetailClick, onDataLoaded }: {
                     <CardDescription>Volume and margin analysis for all products</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Product Name</TableHead>
-                                <TableHead className="text-right">Volume Sold</TableHead>
-                                <TableHead className="text-right">Total Revenue</TableHead>
-                                <TableHead className="text-right">Gross Profit</TableHead>
-                                <TableHead className="text-right">Margin %</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.breakdownData.map((item: any, idx: number) => (
-                                <TableRow key={item.name}>
-                                    <TableCell className="font-semibold">{item.name}</TableCell>
-                                    <TableCell className="text-right font-mono">{item.volume.toFixed(2)}</TableCell>
-                                    <TableCell className="text-right font-bold">Rs. {item.revenue.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right text-emerald-600 font-bold">Rs. {item.profit.toLocaleString()}</TableCell>
-                                    <TableCell className="text-right">
-                                        <span className={cn(
-                                            "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
-                                            (item.profit / item.revenue) > 0.1 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-                                        )}>
-                                            {item.revenue > 0 ? ((item.profit / item.revenue) * 100).toFixed(1) : 0}%
-                                        </span>
-                                    </TableCell>
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="whitespace-nowrap">Product Name</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Volume Sold</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Total Revenue</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Gross Profit</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Margin %</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
+                            </TableHeader>
+                            <TableBody>
+                                {data.breakdownData.map((item: any, idx: number) => (
+                                    <TableRow key={item.name}>
+                                        <TableCell className="font-semibold whitespace-nowrap">{item.name}</TableCell>
+                                        <TableCell className="text-right font-mono whitespace-nowrap">{item.volume.toFixed(2)}</TableCell>
+                                        <TableCell className="text-right font-bold whitespace-nowrap">Rs. {item.revenue.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right text-emerald-600 font-bold whitespace-nowrap">Rs. {item.profit.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right whitespace-nowrap">
+                                            <span className={cn(
+                                                "inline-flex items-center rounded-full px-2 py-1 text-xs font-medium",
+                                                (item.profit / item.revenue) > 0.1 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                                            )}>
+                                                {item.revenue > 0 ? ((item.profit / item.revenue) * 100).toFixed(1) : 0}%
+                                            </span>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

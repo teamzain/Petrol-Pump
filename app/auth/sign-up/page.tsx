@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Fuel, Eye, EyeOff, Lock, User, Mail, Phone, AlertCircle, ArrowLeft } from "lucide-react"
+import { Fuel, Eye, EyeOff, Lock, User, Mail, Phone, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react"
+import { BrandLoader as Loader } from "@/components/ui/brand-loader"
 import Link from "next/link"
 
 export default function SignUpPage() {
@@ -166,8 +167,8 @@ export default function SignUpPage() {
       <div className="w-full max-w-md py-8">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
-            <Fuel className="w-8 h-8 text-primary" />
+          <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-slate-50">
+            <Loader size="lg" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">Create Admin Account</h1>
           <p className="text-muted-foreground mt-2">Set up your petrol pump management system</p>
@@ -311,15 +312,8 @@ export default function SignUpPage() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                    Registering...
-                  </span>
-                ) : (
-                  "Sign Up"
-                )}
+              <Button type="submit" className="w-full h-11" disabled={isLoading}>
+                {isLoading ? <Loader size="xs" /> : "Create Admin Account"}
               </Button>
             </form>
 

@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
-import { Plus, Search, ShoppingCart, TrendingUp, Calendar, Eye, Fuel, Package, Loader2, CheckCircle2, AlertCircle } from "lucide-react"
+import { Plus, Search, ShoppingCart, TrendingUp, Calendar, Eye, Fuel, Package, CheckCircle2, AlertCircle } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { PurchaseDialog } from "@/components/purchases/purchase-dialog"
 import { OilPurchaseDialog } from "@/components/purchases/oil-purchase-dialog"
 import { PurchaseDetailsDialog } from "@/components/purchases/purchase-details-dialog"
@@ -210,8 +211,8 @@ export default function PurchasesPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="mb-4 flex flex-col gap-4 sm:flex-row">
+        <CardContent className="p-0 sm:p-6">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row px-4 sm:px-0 mt-4 sm:mt-0">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -221,78 +222,81 @@ export default function PurchasesPage() {
                 className="pl-10 h-10"
               />
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-full sm:w-[150px] h-10">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Type" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="fuel">Fuel Only</SelectItem>
-                <SelectItem value="oil_lubricant">Oils & Lubes</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-full sm:w-[150px] h-10">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="Status" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="due">Running Due</SelectItem>
-                <SelectItem value="paid">Fully Paid</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2">
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-full sm:w-[150px] h-10">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Type" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="fuel">Fuel Only</SelectItem>
+                  <SelectItem value="oil_lubricant">Oils & Lubes</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={filterStatus} onValueChange={setFilterStatus}>
+                <SelectTrigger className="w-full sm:w-[150px] h-10">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                    <SelectValue placeholder="Status" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="due">Running Due</SelectItem>
+                  <SelectItem value="paid">Fully Paid</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {loading ? (
-            <div className="flex h-32 items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-500">
+              <BrandLoader size="lg" className="mb-6" />
+              <p className="text-muted-foreground font-medium animate-pulse tracking-wide italic">Loading procurement history...</p>
             </div>
           ) : filteredOrders.length === 0 ? (
-            <div className="text-center py-10 border rounded-md">
+            <div className="text-center py-10 border rounded-md mx-4 sm:mx-0">
               <p className="text-muted-foreground">No records found.</p>
             </div>
           ) : (
-            <div className="rounded-md border overflow-x-auto">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Invoice #</TableHead>
-                    <TableHead>Supplier</TableHead>
-                    <TableHead>Items</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Paid</TableHead>
-                    <TableHead className="text-right">Due</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                    <TableHead className="whitespace-nowrap">Invoice #</TableHead>
+                    <TableHead className="whitespace-nowrap">Supplier</TableHead>
+                    <TableHead className="whitespace-nowrap">Items</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Total</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Paid</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Due</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredOrders.map((order) => (
                     <TableRow key={order.id}>
-                      <TableCell>{new Date(order.purchase_date).toLocaleDateString()}</TableCell>
-                      <TableCell className="font-mono text-sm">{order.invoice_number}</TableCell>
-                      <TableCell>{order.suppliers?.supplier_name}</TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">{new Date(order.purchase_date).toLocaleDateString()}</TableCell>
+                      <TableCell className="font-mono text-sm whitespace-nowrap">{order.invoice_number}</TableCell>
+                      <TableCell className="whitespace-nowrap">{order.suppliers?.supplier_name}</TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant="outline">{order.purchases?.length || 0} Products</Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">Rs. {Number(order.total_amount).toLocaleString()}</TableCell>
-                      <TableCell className="text-right text-green-600">Rs. {Number(order.paid_amount).toLocaleString()}</TableCell>
-                      <TableCell className="text-right text-destructive font-semibold">
+                      <TableCell className="text-right font-medium whitespace-nowrap">Rs. {Number(order.total_amount).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-green-600 whitespace-nowrap">Rs. {Number(order.paid_amount).toLocaleString()}</TableCell>
+                      <TableCell className="text-right text-destructive font-semibold whitespace-nowrap">
                         {Number(order.due_amount) > 0 ? `Rs. ${Number(order.due_amount).toLocaleString()}` : "-"}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="whitespace-nowrap">
                         <Badge variant={Number(order.due_amount) > 0 ? "destructive" : "default"}>
                           {Number(order.due_amount) > 0 ? "Partial/Due" : "Cleared"}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right whitespace-nowrap">
                         <Button
                           variant="ghost"
                           size="icon"

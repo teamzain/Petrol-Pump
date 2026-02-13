@@ -9,9 +9,9 @@ import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
-    CheckCircle2, AlertCircle, User, Shield, Lock, Save,
-    Loader2
+    CheckCircle2, AlertCircle, User, Shield, Lock, Save
 } from "lucide-react"
+import { BrandLoader as Loader } from "@/components/ui/brand-loader"
 
 export default function ProfilePage() {
     const [loading, setLoading] = useState(true)
@@ -172,8 +172,8 @@ export default function ProfilePage() {
                         </div>
 
                         <div className="flex justify-end pt-4">
-                            <Button className="min-w-[140px]" onClick={handleUpdateProfile} disabled={saving}>
-                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Profile"}
+                            <Button onClick={handleUpdateProfile} disabled={loading}>
+                                {loading ? <Loader size="xs" /> : "Update Profile"}
                             </Button>
                         </div>
                     </CardContent>

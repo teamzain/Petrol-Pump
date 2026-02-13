@@ -23,7 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { createClient } from "@/lib/supabase/client"
-import { Loader2 } from "lucide-react"
+import { AlertCircle } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 
 interface Product {
   id: string
@@ -46,7 +47,7 @@ export function StockAdjustmentDialog({
   product,
   onSuccess,
 }: StockAdjustmentDialogProps) {
-  const [loading, setLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [adjustmentType, setAdjustmentType] = useState<"add" | "subtract">("add")
   const [quantity, setQuantity] = useState("")
   const [reason, setReason] = useState("")
@@ -56,18 +57,18 @@ export function StockAdjustmentDialog({
     e.preventDefault()
     if (!product) return
 
-    setLoading(true)
+    setIsLoading(true)
 
     try {
-      const adjustmentQty = adjustmentType === "add" 
-        ? parseFloat(quantity) 
+      const adjustmentQty = adjustmentType === "add"
+        ? parseFloat(quantity)
         : -parseFloat(quantity)
-      
+
       const newStock = product.current_stock + adjustmentQty
 
       if (newStock < 0) {
         alert("Stock cannot be negative")
-        setLoading(false)
+        setIsLoading(false)
         return
       }
 
@@ -105,7 +106,7 @@ export function StockAdjustmentDialog({
       console.error("Error adjusting stock:", error)
       alert("Failed to adjust stock. Please try again.")
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -182,9 +183,8 @@ export function StockAdjustmentDialog({
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Confirm Adjustment
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? <BrandLoader size="xs" /> : "Save Adjustment"}
             </Button>
           </DialogFooter>
         </form>

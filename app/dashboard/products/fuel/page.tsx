@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Plus, Search, Pencil, Trash2, Fuel, AlertTriangle } from "lucide-react"
 import { FuelProductDialog } from "@/components/products/fuel-product-dialog"
+import { BrandLoader } from "@/components/ui/brand-loader"
 import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 import { Progress } from "@/components/ui/progress"
 
@@ -198,10 +199,10 @@ export default function FuelProductsPage() {
             {filteredProducts.length} fuel product(s)
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0 sm:p-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
-              <div className="w-6 h-6 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <BrandLoader size="md" />
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="text-center py-12">
@@ -225,13 +226,13 @@ export default function FuelProductsPage() {
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Product</TableHead>
-                    <TableHead>Tank Level</TableHead>
-                    <TableHead>Purchase Price</TableHead>
-                    <TableHead>Selling Price</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="whitespace-nowrap">Product</TableHead>
+                    <TableHead className="whitespace-nowrap">Tank Level</TableHead>
+                    <TableHead className="whitespace-nowrap">Purchase Price</TableHead>
+                    <TableHead className="whitespace-nowrap">Selling Price</TableHead>
+                    <TableHead className="whitespace-nowrap">Status</TableHead>
+                    <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -258,8 +259,8 @@ export default function FuelProductsPage() {
                               {getStockPercentage(product.current_stock, product.tank_capacity).toFixed(0)}%
                             </span>
                           </div>
-                          <Progress 
-                            value={getStockPercentage(product.current_stock, product.tank_capacity)} 
+                          <Progress
+                            value={getStockPercentage(product.current_stock, product.tank_capacity)}
                             className={isLowStock(product) ? "[&>div]:bg-destructive" : ""}
                           />
                           {isLowStock(product) && (

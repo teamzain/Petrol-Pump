@@ -149,47 +149,49 @@ export function ExpenseBreakdownReport({ filters, onDetailClick, onDataLoaded }:
                     <CardTitle className="text-base font-bold">Major Expense Items</CardTitle>
                     <CardDescription>Comprehensive list of spending during this period</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <Table>
-                        <TableHeader>
-                            <TableRow className="bg-muted/50">
-                                <TableHead>Date</TableHead>
-                                <TableHead>Category</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Paid To</TableHead>
-                                <TableHead className="text-right">Amount</TableHead>
-                                <TableHead className="text-center">Method</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {data.expenses.length === 0 ? (
-                                <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No expenses found</TableCell></TableRow>
-                            ) : (
-                                data.expenses.map((exp: any) => (
-                                    <TableRow
-                                        key={exp.id}
-                                        className="cursor-pointer hover:bg-muted/30 transition-colors"
-                                        onClick={() => onDetailClick?.(exp)}
-                                    >
-                                        <TableCell className="text-xs">{format(new Date(exp.expense_date), "MMM dd, yyyy")}</TableCell>
-                                        <TableCell>
-                                            <Badge variant="outline" className="text-[10px] uppercase">{exp.expense_categories?.category_name}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-xs truncate max-w-[200px]">{exp.description}</TableCell>
-                                        <TableCell className="text-xs">{exp.paid_to || "-"}</TableCell>
-                                        <TableCell className="text-right font-bold text-xs text-rose-600">
-                                            Rs. {Number(exp.amount).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <Badge variant="secondary" className="text-[10px] uppercase h-4">
-                                                {exp.payment_method.replace('_', ' ')}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                <CardContent className="p-0 sm:p-6">
+                    <div className="overflow-x-auto">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="whitespace-nowrap">Date</TableHead>
+                                    <TableHead className="whitespace-nowrap">Category</TableHead>
+                                    <TableHead className="whitespace-nowrap">Description</TableHead>
+                                    <TableHead className="whitespace-nowrap">Paid To</TableHead>
+                                    <TableHead className="text-right whitespace-nowrap">Amount</TableHead>
+                                    <TableHead className="text-center whitespace-nowrap">Method</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {data.expenses.length === 0 ? (
+                                    <TableRow><TableCell colSpan={6} className="text-center py-12 text-muted-foreground">No expenses found</TableCell></TableRow>
+                                ) : (
+                                    data.expenses.map((exp: any) => (
+                                        <TableRow
+                                            key={exp.id}
+                                            className="cursor-pointer hover:bg-muted/30 transition-colors"
+                                            onClick={() => onDetailClick?.(exp)}
+                                        >
+                                            <TableCell className="text-xs whitespace-nowrap">{format(new Date(exp.expense_date), "MMM dd, yyyy")}</TableCell>
+                                            <TableCell className="whitespace-nowrap">
+                                                <Badge variant="outline" className="text-[10px] uppercase">{exp.expense_categories?.category_name}</Badge>
+                                            </TableCell>
+                                            <TableCell className="text-xs truncate max-w-[200px] whitespace-nowrap">{exp.description}</TableCell>
+                                            <TableCell className="text-xs whitespace-nowrap">{exp.paid_to || "-"}</TableCell>
+                                            <TableCell className="text-right font-bold text-xs text-rose-600 whitespace-nowrap">
+                                                Rs. {Number(exp.amount).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-center whitespace-nowrap">
+                                                <Badge variant="secondary" className="text-[10px] uppercase h-4">
+                                                    {exp.payment_method.replace('_', ' ')}
+                                                </Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

@@ -24,7 +24,6 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { createClient } from "@/lib/supabase/client"
 import {
-  Loader2,
   AlertCircle,
   TrendingUp,
   TrendingDown,
@@ -38,6 +37,7 @@ import {
   CheckSquare,
   Package,
 } from "lucide-react"
+import { BrandLoader } from "../ui/brand-loader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -550,7 +550,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
             <DialogFooter className="gap-2 sm:gap-0">
               <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-full px-8 hover:bg-muted font-bold">Discard</Button>
               <Button onClick={handleSubmit} disabled={loading || cart.length === 0} className="rounded-full px-10 bg-primary hover:bg-primary/90 font-black shadow-lg shadow-primary/20">
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckSquare className="mr-2 h-4 w-4" />} SAVE INVOICE
+                {loading ? <BrandLoader size="xs" /> : <CheckSquare className="mr-2 h-4 w-4" />} SAVE INVOICE
               </Button>
             </DialogFooter>
           </>
@@ -581,13 +581,8 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
         )}
         {loading && (
           <div className="absolute inset-0 z-[50] flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in duration-300 rounded-2xl">
-            <div className="relative">
-              <div className="h-24 w-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-2xl shadow-primary/20" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Fuel className="h-10 w-10 text-primary animate-pulse" />
-              </div>
-            </div>
-            <h3 className="mt-6 text-xl font-black tracking-tight">Recording Fuel Bulk...</h3>
+            <BrandLoader size="xl" className="mb-6" />
+            <h3 className="text-xl font-black tracking-tight">Recording Fuel Bulk...</h3>
             <p className="text-sm text-muted-foreground animate-pulse font-medium">Updating tanks and accounts</p>
           </div>
         )}

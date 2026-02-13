@@ -5,19 +5,8 @@ import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
 import { getTodayPKT } from "@/lib/utils"
 import Link from "next/link"
-import {
-  ArrowLeft,
-  Calendar as CalendarIcon,
-  Search,
-  Save,
-  Lock,
-  Unlock,
-  AlertTriangle,
-  CheckCircle2,
-  Fuel,
-  Droplet,
-  Loader2
-} from "lucide-react"
+import { ArrowLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet } from "lucide-react"
+import { BrandLoader } from "@/components/ui/brand-loader"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -475,13 +464,8 @@ export default function SalesPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in duration-500">
-        <div className="relative">
-          <div className="h-20 w-20 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Droplet className="h-8 w-8 text-primary/40" />
-          </div>
-        </div>
-        <p className="mt-4 text-muted-foreground font-medium animate-pulse">Initializing Sales Dashboard...</p>
+        <BrandLoader size="lg" className="mb-4" />
+        <p className="text-muted-foreground font-medium animate-pulse">Initializing Sales Dashboard...</p>
       </div>
     )
   }
@@ -540,92 +524,94 @@ export default function SalesPage() {
               </div>
               <Button onClick={handleSubmitFuelSales} disabled={saving} className="min-w-[120px]">
                 {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <BrandLoader size="xs" />
                 ) : (
                   <><Save className="mr-2 h-4 w-4" /> Save All</>
                 )}
               </Button>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pump / Nozzle</TableHead>
-                    <TableHead>Product</TableHead>
-                    <TableHead className="text-right">Opening</TableHead>
-                    <TableHead className="text-right w-[150px]">Closing</TableHead>
-                    <TableHead className="text-right">Price</TableHead>
-                    <TableHead className="text-right">Liters</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-center w-[120px]">Payment</TableHead>
-                    <TableHead className="text-center w-[50px]">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {nozzles.map((nozzle) => {
-                    const reading = nozzleReadings.find(r => r.nozzle_id === nozzle.id) || {
-                      nozzle_id: nozzle.id, opening_reading: 0, closing_reading: "", liters_sold: 0, sales_amount: 0, payment_method: "cash", bank_account_id: ""
-                    }
-                    const isLocked = reading.id && !unlockedNozzles.has(nozzle.id)
+            <CardContent className="p-0 sm:p-6">
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Pump / Nozzle</TableHead>
+                      <TableHead>Product</TableHead>
+                      <TableHead className="text-right">Opening</TableHead>
+                      <TableHead className="text-right w-[150px]">Closing</TableHead>
+                      <TableHead className="text-right">Price</TableHead>
+                      <TableHead className="text-right">Liters</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-center w-[120px]">Payment</TableHead>
+                      <TableHead className="text-center w-[50px]">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {nozzles.map((nozzle) => {
+                      const reading = nozzleReadings.find(r => r.nozzle_id === nozzle.id) || {
+                        nozzle_id: nozzle.id, opening_reading: 0, closing_reading: "", liters_sold: 0, sales_amount: 0, payment_method: "cash", bank_account_id: ""
+                      }
+                      const isLocked = reading.id && !unlockedNozzles.has(nozzle.id)
 
-                    return (
-                      <TableRow key={nozzle.id}>
-                        <TableCell>
-                          <div className="font-medium">Nozzle {nozzle.nozzle_number}</div>
-                          {/* <div className="text-xs text-muted-foreground">Pump {nozzle.pumps?.pump_name}</div> */}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{nozzle.products?.product_name}</Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-mono">
-                          {reading.opening_reading.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="relative flex items-center justify-end gap-2">
-                            {isLocked && <Lock className="h-4 w-4 text-muted-foreground" />}
-                            <Input
-                              type="number"
-                              className="w-24 text-right font-mono h-8"
-                              value={reading.closing_reading}
-                              onChange={(e) => handleReadingChange(nozzle.id, e.target.value)}
-                              disabled={!!isLocked}
-                            />
-                            {/* Unlock Button Context */}
-                            {isLocked && (
-                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleUnlockRequest(nozzle.id)}>
-                                <Unlock className="h-3 w-3" />
-                              </Button>
+                      return (
+                        <TableRow key={nozzle.id}>
+                          <TableCell>
+                            <div className="font-medium">Nozzle {nozzle.nozzle_number}</div>
+                            {/* <div className="text-xs text-muted-foreground">Pump {nozzle.pumps?.pump_name}</div> */}
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{nozzle.products?.product_name}</Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-mono">
+                            {reading.opening_reading.toFixed(2)}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="relative flex items-center justify-end gap-2">
+                              {isLocked && <Lock className="h-4 w-4 text-muted-foreground" />}
+                              <Input
+                                type="number"
+                                className="w-24 text-right font-mono h-8"
+                                value={reading.closing_reading}
+                                onChange={(e) => handleReadingChange(nozzle.id, e.target.value)}
+                                disabled={!!isLocked}
+                              />
+                              {/* Unlock Button Context */}
+                              {isLocked && (
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleUnlockRequest(nozzle.id)}>
+                                  <Unlock className="h-3 w-3" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right text-muted-foreground">
+                            {nozzle.products?.selling_price}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {reading.liters_sold > 0 ? reading.liters_sold.toFixed(2) : "-"}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {reading.sales_amount > 0 ? reading.sales_amount.toLocaleString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center justify-center min-w-[120px]">
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 uppercase text-[10px] font-bold">
+                                Cash Only
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {reading.id ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
+                            ) : (
+                              <div className="h-2 w-2 rounded-full bg-slate-200 mx-auto" />
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {nozzle.products?.selling_price}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {reading.liters_sold > 0 ? reading.liters_sold.toFixed(2) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {reading.sales_amount > 0 ? reading.sales_amount.toLocaleString() : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center justify-center min-w-[120px]">
-                            <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 uppercase text-[10px] font-bold">
-                              Cash Only
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {reading.id ? (
-                            <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
-                          ) : (
-                            <div className="h-2 w-2 rounded-full bg-slate-200 mx-auto" />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -731,7 +717,7 @@ export default function SalesPage() {
                       (oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock || 0) < parseFloat(newProductSale.quantity || "0")
                     }
                   >
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Record Sale"}
+                    {saving ? <BrandLoader size="xs" /> : "Record Sale"}
                   </Button>
                 </div>
               </CardContent>
@@ -742,31 +728,33 @@ export default function SalesPage() {
                 <CardTitle>Today's Sales</CardTitle>
                 <CardDescription>{productSales.length} items sold</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {productSales.length === 0 ? (
+              <CardContent className="p-0 sm:p-6">
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground h-24">No sales yet</TableCell>
+                        <TableHead>Product</TableHead>
+                        <TableHead className="text-right">Qty</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                       </TableRow>
-                    ) : (
-                      productSales.map(sale => (
-                        <TableRow key={sale.id}>
-                          <TableCell className="font-medium">{sale.products?.product_name}</TableCell>
-                          <TableCell className="text-right">{sale.quantity}</TableCell>
-                          <TableCell className="text-right font-bold">Rs. {sale.sale_amount?.toLocaleString()}</TableCell>
+                    </TableHeader>
+                    <TableBody>
+                      {productSales.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-center text-muted-foreground h-24">No sales yet</TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        productSales.map(sale => (
+                          <TableRow key={sale.id}>
+                            <TableCell className="font-medium">{sale.products?.product_name}</TableCell>
+                            <TableCell className="text-right">{sale.quantity}</TableCell>
+                            <TableCell className="text-right font-bold">Rs. {sale.sale_amount?.toLocaleString()}</TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -798,15 +786,10 @@ export default function SalesPage() {
 
       {saving && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative">
-            <div className="h-24 w-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin shadow-2xl shadow-primary/20" />
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Droplet className="h-8 w-8 text-primary animate-pulse" />
-            </div>
-          </div>
-          <div className="mt-6 text-center space-y-2">
-            <h3 className="text-xl font-bold tracking-tight">Syncing Sales Data...</h3>
-            <p className="text-muted-foreground animate-pulse">Updating inventory and account balances</p>
+          <BrandLoader size="xl" className="mb-6" />
+          <div className="text-center space-y-2">
+            <h3 className="text-xl font-bold tracking-tight text-[#DD1D21]">Syncing Sales Data...</h3>
+            <p className="text-muted-foreground animate-pulse font-bold">Updating inventory and account balances</p>
           </div>
         </div>
       )}
