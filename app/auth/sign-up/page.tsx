@@ -133,6 +133,14 @@ export default function SignUpPage() {
     }
   }
 
+  if (isLocked === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <Loader size="lg" />
+      </div>
+    )
+  }
+
   if (isLocked === true) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white p-4 font-sans">
@@ -167,11 +175,8 @@ export default function SignUpPage() {
       <div className="w-full max-w-md py-8">
         {/* Logo and Title */}
         <div className="text-center mb-8">
-          <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-slate-50">
-            <Loader size="lg" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground">Create Admin Account</h1>
-          <p className="text-muted-foreground mt-2">Set up your petrol pump management system</p>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tighter uppercase italic">Create <span className="text-primary uppercase italic">Admin</span> Account</h1>
+          <p className="text-slate-500 font-medium tracking-wide italic mt-2">Set up your premium station management system</p>
         </div>
 
         <Card className="shadow-2xl shadow-slate-200/50 border-slate-200 bg-white/80 backdrop-blur-xl">

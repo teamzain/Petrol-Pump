@@ -19,7 +19,20 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [hasAdmin, setHasAdmin] = useState<boolean | null>(null)
   const router = useRouter()
+
+  React.useEffect(() => {
+    const checkAdmin = async () => {
+      const supabase = createClient()
+      const { count } = await supabase
+        .from("users")
+        .select("*", { count: 'exact', head: true })
+
+      setHasAdmin(count !== null && count > 0)
+    }
+    checkAdmin()
+  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -260,14 +273,16 @@ export default function LoginPage() {
                 </Button>
               </form>
 
-              <div className="mt-8 pt-8 border-t border-border/50">
-                <p className="text-sm text-center text-muted-foreground font-medium">
-                  Need an operator account?{" "}
-                  <a href="/auth/sign-up" className="text-primary hover:underline font-bold">
-                    Register Admin
-                  </a>
-                </p>
-              </div>
+              {hasAdmin === false && (
+                <div className="mt-8 pt-8 border-t border-border/50">
+                  <p className="text-sm text-center text-muted-foreground font-medium">
+                    Need an operator account?{" "}
+                    <a href="/auth/sign-up" className="text-primary hover:underline font-bold">
+                      Register Admin
+                    </a>
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
