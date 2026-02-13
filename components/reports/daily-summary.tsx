@@ -120,7 +120,7 @@ export function DailySummaryReport({ filters, onDetailClick, onDataLoaded }: {
                 }
                 const { data: expenses } = await expenseQuery
 
-                // 5. Fetch Balances
+                // 5. Fetch Balances (Find prior day for accurate opening)
                 const { data: balances } = await supabase
                     .from("daily_balances")
                     .select("*")
@@ -128,7 +128,22 @@ export function DailySummaryReport({ filters, onDetailClick, onDataLoaded }: {
                     .lte("balance_date", toDate)
                     .order("balance_date", { ascending: true })
 
-                // 6. Fetch Stock Movements
+                // Fetch the most recent balance record BEFORE the fromDate
+                const { data: priorBalance } = await supabase
+                    .from("daily_balances")
+                    .select("*")
+                    .lt("balance_date", fromDate)
+                    .order("balance_date", { ascending: false })
+                    .limit(1)
+
+                // 6. Fetch All Transactions for Cash Flow accuracy
+                const { data: transactions } = await supabase
+                    .from("transactions")
+                    .select("*")
+                    .gte("transaction_date", fromDate)
+                    .lte("transaction_date", toDate)
+
+                // 7. Fetch Stock Movements
                 let movementQuery = supabase
                     .from("stock_movements")
                     .select("*, products!inner(product_name, product_type)")
@@ -148,35 +163,61 @@ export function DailySummaryReport({ filters, onDetailClick, onDataLoaded }: {
                 // Aggregations
                 const totalFuel = fuelSales?.reduce((sum, s) => sum + Number(s.sale_amount || 0), 0) || 0
                 const totalProducts = productSales?.reduce((sum, s) => sum + Number(s.sale_amount || 0), 0) || 0
+                const totalSales = totalFuel + totalProducts
                 const totalPurchases = purchases?.reduce((sum, p) => sum + Number(p.total_amount || 0), 0) || 0
                 const totalExpenses = expenses?.reduce((sum, e) => sum + Number(e.amount || 0), 0) || 0
+
+                // Advanced Cash In/Out (Including manual adjustments and internal transfers)
+                // Income: Sales + Income transactions
+                const incomeAdjustments = transactions?.filter(t => t.transaction_type === 'income')?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0
+                const cashIn = totalSales + incomeAdjustments
+
+                // Outgo: Purchases + Expenses + Expense transactions
+                const expenseAdjustments = transactions?.filter(t => t.transaction_type === 'expense')?.reduce((sum, t) => sum + Number(t.amount || 0), 0) || 0
+                const cashOut = totalPurchases + totalExpenses + expenseAdjustments
 
                 const fuelProfit = fuelSales?.reduce((sum, s) => sum + Number(s.gross_profit || 0), 0) || 0
                 const productProfit = productSales?.reduce((sum, s) => sum + Number(s.gross_profit || 0), 0) || 0
                 const grossProfit = fuelProfit + productProfit
-                const netProfit = grossProfit - totalExpenses
+                const netProfit = grossProfit - totalExpenses - expenseAdjustments
 
-                const openingBal = balances && balances.length > 0 ? Number(balances[0].cash_opening || 0) + Number(balances[0].bank_opening || 0) : 0
-                const closingBal = balances && balances.length > 0 ? Number(balances[balances.length - 1].cash_closing || 0) + Number(balances[balances.length - 1].bank_closing || 0) : 0
+                // Opening Balance Strategy: 
+                // Either get it from the first day in range, OR if that's 0/missing, use the prior record's closing
+                let openingBal = 0
+                if (balances && balances.length > 0) {
+                    openingBal = Number(balances[0].cash_opening || 0) + Number(balances[0].bank_opening || 0)
+                }
+
+                // If it's still 0, try to pull from historical rollover
+                if (openingBal === 0 && priorBalance && priorBalance.length > 0) {
+                    openingBal = Number(priorBalance[0].cash_closing || 0) + Number(priorBalance[0].bank_closing || 0)
+                }
+
+                // Estimated closing should be Opening + In - Out to be mathematically transparent to the user
+                const closingBal = openingBal + cashIn - cashOut
 
                 setData({
-                    totalSales: totalFuel + totalProducts,
+                    totalSales,
                     fuelSales: totalFuel,
                     productSales: totalProducts,
                     totalPurchases,
-                    totalExpenses,
+                    totalExpenses: totalExpenses + expenseAdjustments,
                     grossProfit,
                     netProfit,
                     transactionCount: (fuelSales?.length || 0) + (productSales?.length || 0),
-                    cashIn: totalFuel + totalProducts, // Simplified
-                    cashOut: totalPurchases + totalExpenses,
+                    cashIn,
+                    cashOut,
                     openingBalance: openingBal,
                     closingBalance: closingBal,
                     stockMovements: stockMovements || []
                 })
                 onDataLoaded?.({
                     stockMovements: stockMovements || [],
-                    ...data // This won't work perfectly since data is defined inside setData, I'll calculate it
+                    totalSales,
+                    cashIn,
+                    cashOut,
+                    openingBalance: openingBal,
+                    closingBalance: closingBal
                 })
 
             } catch (error) {

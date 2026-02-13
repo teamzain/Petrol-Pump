@@ -4,18 +4,8 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { ReportFilter } from "@/app/dashboard/reports/page"
 import {
-    PieChart,
-    Pie,
-    Cell,
-    ResponsiveContainer,
-    Legend,
-    Tooltip,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid
-} from "recharts"
+    Receipt,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -84,62 +74,25 @@ export function ExpenseBreakdownReport({ filters, onDetailClick, onDataLoaded }:
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {/* Pie Chart Card */}
-                <Card className="lg:col-span-1">
-                    <CardHeader>
-                        <CardTitle className="text-base font-bold">Category Distribution</CardTitle>
-                        <CardDescription>Where your money is going</CardDescription>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {/* Total Expense Summary Card */}
+                <Card className="bg-rose-50/50 dark:bg-rose-950/10 border-rose-100 dark:border-rose-900/50 shadow-sm relative overflow-hidden group">
+                    <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                        <Receipt className="h-12 w-12 text-rose-600" />
+                    </div>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-xs font-bold uppercase tracking-wider text-rose-600/70 dark:text-rose-400/70">Total Expenses</CardDescription>
+                        <CardTitle className="text-3xl font-black tracking-tighter text-rose-700 dark:text-rose-400">
+                            Rs. {totalExpenses.toLocaleString()}
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="h-[300px]">
-                        {data.categoryData.length === 0 ? (
-                            <div className="flex items-center justify-center h-full text-muted-foreground italic">No expenses recorded</div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={data.categoryData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={100}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {data.categoryData.map((entry: any, index: number) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        formatter={(value: number) => `Rs. ${value.toLocaleString()}`}
-                                    />
-                                    <Legend />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* Bar Chart Card */}
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="text-base font-bold">Expenses by Category</CardTitle>
-                        <CardDescription>Comparative spending analysis</CardDescription>
-                    </CardHeader>
-                    <CardContent className="h-[300px]">
-                        {data.categoryData.length === 0 ? (
-                            <div className="flex items-center justify-center h-full text-muted-foreground italic">No data available</div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={data.categoryData.slice(0, 8)}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-                                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} hide />
-                                    <Tooltip formatter={(value: number) => `Rs. ${value.toLocaleString()}`} cursor={{ fill: '#F1F5F9' }} />
-                                    <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={40} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        )}
+                    <CardContent>
+                        <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-white/50 dark:bg-black/20 border-rose-200 dark:border-rose-800 text-[10px] h-5">
+                                {data.expenses.length} Records
+                            </Badge>
+                            <span className="text-[10px] text-muted-foreground italic truncate">Across {data.categoryData.length} categories</span>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

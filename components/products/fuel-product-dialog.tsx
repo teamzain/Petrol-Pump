@@ -109,7 +109,10 @@ export function FuelProductDialog({ open, onOpenChange, product, onSuccess }: Fu
           .update({
             product_name: productData.product_name,
             tank_capacity: productData.tank_capacity,
+            purchase_price: productData.purchase_price,
+            weighted_avg_cost: productData.weighted_avg_cost,
             selling_price: productData.selling_price,
+            stock_value: productData.stock_value,
           })
           .eq("id", product.id)
 
@@ -234,7 +237,6 @@ export function FuelProductDialog({ open, onOpenChange, product, onSuccess }: Fu
                   onChange={(e) => setFormData({ ...formData, purchase_price: e.target.value })}
                   placeholder="e.g., 250.00"
                   required
-                  disabled={isEditing}
                 />
               </div>
 
