@@ -5,7 +5,7 @@ import { createServerClient } from '@supabase/ssr'
 export async function middleware(request: NextRequest) {
   // Update session first
   const response = await updateSession(request)
-  
+
   const { pathname } = request.nextUrl
 
   // Create a Supabase client to check auth status
@@ -30,15 +30,26 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/auth/login', '/auth/sign-up', '/auth/sign-up-success', '/auth/error']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
-  // If user is not logged in and trying to access protected route
-  if (!user && !isPublicRoute) {
+  // If user is authenticated via Supabase Auth, verify they exist in the public.users table
+  let dbUser = null
+  if (user) {
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', user.id)
+      .single()
+    dbUser = data
+  }
+
+  // If user is NOT logged in OR missing from the database, redirect to login (unless already on a public route)
+  if ((!user || !dbUser) && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
-  // If user is logged in and trying to access login page, redirect to dashboard
-  if (user && (pathname === '/login' || pathname === '/auth/login')) {
+  // If user is logged in AND exists in db, and trying to access login page, redirect to dashboard
+  if (user && dbUser && (pathname === '/login' || pathname === '/auth/login')) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

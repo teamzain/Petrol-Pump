@@ -46,6 +46,22 @@ export default function LoginPage() {
       }
 
       if (data.user) {
+        // Double Check: Verify user exists in the public.users table
+        const { data: dbUser, error: dbError } = await supabase
+          .from("users")
+          .select("id")
+          .eq("id", data.user.id)
+          .single()
+
+        if (!dbUser || dbError) {
+          // If the user exists in Auth but not in our database (e.g. after a truncate)
+          // We must sign them out immediately and show an error
+          await supabase.auth.signOut()
+          setError("Access Denied: Your account record was not found in the database. Please contact your administrator.")
+          setIsLoading(false)
+          return
+        }
+
         // Update last login
         await supabase
           .from("users")
