@@ -34,7 +34,7 @@ export function PurchaseHistoryReport({ filters, onDetailClick, onDataLoaded }: 
 
                 let query = supabase
                     .from("purchase_orders")
-                    .select("*, suppliers!inner(supplier_name, supplier_type)")
+                    .select("*, suppliers!inner(supplier_name, supplier_type), accounts(account_name)")
                     .gte("purchase_date", fromDate)
                     .lte("purchase_date", toDate)
 
@@ -83,23 +83,44 @@ export function PurchaseHistoryReport({ filters, onDetailClick, onDataLoaded }: 
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2">
-                <Card>
+            <div className="grid gap-4 md:grid-cols-3">
+                <Card className="border-l-4 border-l-primary shadow-sm">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Total Purchase Value</CardTitle>
+                        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                            <ShoppingCart className="h-4 w-4 text-primary" />
+                            Total Purchase Value
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">Rs. {totalValue.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground mt-1">For selected period</p>
+                        <div className="text-2xl font-black tracking-tight">Rs. {totalValue.toLocaleString()}</div>
+                        <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            For selected period
+                        </p>
                     </CardContent>
                 </Card>
-                <Card>
+                <Card className="border-l-4 border-l-emerald-500 shadow-sm">
                     <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground uppercase">Total Paid</CardTitle>
+                        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                            <CreditCard className="h-4 w-4 text-emerald-500" />
+                            Total Paid Amount
+                        </CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold text-emerald-600">Rs. {totalPaid.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Rs. {(totalValue - totalPaid).toLocaleString()} pending</p>
+                        <div className="text-2xl font-black text-emerald-600 tracking-tight">Rs. {totalPaid.toLocaleString()}</div>
+                        <p className="text-[10px] text-emerald-600/70 mt-1 font-medium">Payment cleared</p>
+                    </CardContent>
+                </Card>
+                <Card className="border-l-4 border-l-destructive shadow-sm bg-destructive/[0.02]">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-destructive" />
+                            Outstanding Dues
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-black text-destructive tracking-tight">Rs. {(totalValue - totalPaid).toLocaleString()}</div>
+                        <p className="text-[10px] text-destructive/70 mt-1 font-medium">Pending balance</p>
                     </CardContent>
                 </Card>
             </div>

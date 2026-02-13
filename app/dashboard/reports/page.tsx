@@ -15,14 +15,15 @@ import {
     ChevronDown,
     RefreshCcw,
     Printer,
-    Wallet
+    Wallet,
+    X
 } from "lucide-react"
 import { format, startOfMonth, endOfMonth, startOfToday, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear } from "date-fns"
 
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     Select,
@@ -567,168 +568,260 @@ function DetailViewDialog({ isOpen, onOpenChange, item }: any) {
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-md overflow-hidden p-0 border-none bg-transparent">
-                <Card className="border-none shadow-2xl">
-                    <CardHeader className="bg-primary text-primary-foreground rounded-t-xl pb-6">
+            <DialogContent className="max-w-6xl w-[98vw] sm:w-[95vw] lg:w-[90vw] p-0 border-none bg-transparent max-h-[95vh] overflow-hidden">
+                <Card className="border-none shadow-2xl flex flex-col max-h-[95vh]">
+                    <CardHeader className="bg-primary text-primary-foreground rounded-t-xl pb-4 flex-shrink-0">
                         <div className="flex justify-between items-start">
                             <div>
-                                <Badge variant="secondary" className="mb-2 bg-white/20 text-white hover:bg-white/30 border-none">
+                                <Badge variant="secondary" className="mb-1.5 bg-white/20 text-white hover:bg-white/30 border-none text-[10px]">
                                     {type}
                                 </Badge>
-                                <CardTitle className="text-2xl font-black">Transaction Detail</CardTitle>
-                                <CardDescription className="text-primary-foreground/70">
+                                <CardTitle className="text-xl sm:text-2xl font-black">Transaction Detail</CardTitle>
+                                <CardDescription className="text-primary-foreground/70 text-xs mt-0.5">
                                     Recorded at {format(new Date(item.sale_date || item.purchase_date || item.expense_date || item.reading_date || item.movement_date || new Date()), "PPP p")}
                                 </CardDescription>
                             </div>
-                            <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
-                                <Receipt className="h-6 w-6" />
+                            <div className="h-10 w-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md">
+                                <Receipt className="h-5 w-5" />
                             </div>
                         </div>
                     </CardHeader>
 
-                    <CardContent className="p-6 space-y-6 bg-white dark:bg-slate-950">
-                        {/* Status & ID */}
-                        <div className="flex justify-between items-center text-xs">
-                            <div className="space-y-1">
-                                <span className="text-muted-foreground uppercase font-bold tracking-tighter">Reference ID</span>
-                                <div className="font-mono bg-muted px-2 py-1 rounded-md">{item.id.slice(0, 18).toUpperCase()}</div>
-                            </div>
-                            <div className="text-right space-y-1">
-                                <span className="text-muted-foreground uppercase font-bold tracking-tighter">Status</span>
-                                <div><Badge className="bg-emerald-500 hover:bg-emerald-600">COMPLETED</Badge></div>
-                            </div>
-                        </div>
+                    <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6 bg-white dark:bg-slate-950 overflow-y-auto custom-scrollbar flex-grow">
+                        {/* LANDSCAPE GRID */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:items-start">
 
-                        <Separator className="opacity-50" />
-
-                        {/* SPECIFIC CONTENT SECTIONS */}
-                        <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 p-4">
-                            {isFuelSale && (
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
-                                        <span className="text-sm font-bold">{item.nozzles?.products?.product_name || subItems[0]?.nozzles?.products?.product_name || "Fuel Sale"}</span>
-                                        <Badge variant="secondary">Nozzle {item.nozzles?.nozzle_number || subItems[0]?.nozzles?.nozzle_number || "-"}</Badge>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="text-center">
-                                            <div className="text-[10px] text-muted-foreground uppercase font-bold">Start Reading</div>
-                                            <div className="text-lg font-mono font-bold">{(item.opening_reading || 0).toFixed(2)}</div>
-                                        </div>
-                                        <div className="text-center">
-                                            <div className="text-[10px] text-muted-foreground uppercase font-bold">End Reading</div>
-                                            <div className="text-lg font-mono font-bold">{(item.closing_reading || 0).toFixed(2)}</div>
-                                        </div>
-                                    </div>
-                                    <div className="flex justify-between items-center pt-2 border-t border-slate-200 dark:border-slate-800">
-                                        <div className="text-xs">
-                                            <div className="text-muted-foreground">Price/Unit</div>
-                                            <div className="font-bold">Rs. {Number(item.selling_price || 0).toLocaleString()}</div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-xs text-muted-foreground uppercase font-bold">Qty Sold</div>
-                                            <div className="text-sm font-black text-primary">{(item.quantity_sold || item.quantity || 0).toLocaleString()} Ltrs</div>
-                                        </div>
-                                    </div>
+                            {/* LEFT COLUMN: PRIMARY DETAILS / ITEMS */}
+                            <div className="space-y-4">
+                                <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                    {isPurchase ? "Purchase Order Items" : isFuelSale ? "Nozzle / Reading Data" : "Transaction Details"}
                                 </div>
-                            )}
-
-                            {isProductSale && (
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-sm font-bold text-primary">{item.products?.product_name || "Product Item"}</span>
-                                        <Badge className="h-5">x{item.quantity}</Badge>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs">
-                                        <span className="text-muted-foreground">Selling Price</span>
-                                        <span className="font-semibold">Rs. {Number(item.selling_price || 0).toLocaleString()}</span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {isPurchase && (
-                                <div className="space-y-3">
-                                    <div className="text-[10px] font-black uppercase text-muted-foreground pb-1 tracking-widest">Order Details / Items</div>
-                                    {loading ? (
-                                        <div className="space-y-2">
-                                            <Skeleton className="h-4 w-full" />
-                                            <Skeleton className="h-4 w-3/4" />
-                                        </div>
-                                    ) : subItems.length > 0 ? (
-                                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                                            {subItems.map((si) => (
-                                                <div key={si.id} className="flex justify-between text-xs items-center p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800 shadow-sm">
-                                                    <div>
-                                                        <div className="font-bold">{si.products?.product_name}</div>
-                                                        <div className="text-[10px] text-muted-foreground">{si.quantity} Units @ Rs.{Number(si.purchase_price_per_unit).toLocaleString()}</div>
-                                                    </div>
-                                                    <div className="font-black text-primary">Rs.{Number(si.total_amount).toLocaleString()}</div>
+                                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-4">
+                                    {isFuelSale && (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center pb-2 border-b border-slate-200 dark:border-slate-800">
+                                                <span className="text-sm font-bold">{item.nozzles?.products?.product_name || subItems[0]?.nozzles?.products?.product_name || "Fuel Sale"}</span>
+                                                <Badge variant="secondary" className="text-[10px]">Nozzle {item.nozzles?.nozzle_number || subItems[0]?.nozzles?.nozzle_number || "-"}</Badge>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center shadow-sm">
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Start Reading</div>
+                                                    <div className="text-base font-mono font-bold">{(item.opening_reading || 0).toFixed(2)}</div>
                                                 </div>
-                                            ))}
+                                                <div className="bg-white dark:bg-slate-900 p-3 rounded-xl border text-center shadow-sm">
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">End Reading</div>
+                                                    <div className="text-base font-mono font-bold">{(item.closing_reading || 0).toFixed(2)}</div>
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-200 dark:border-slate-800 text-center">
+                                                <div>
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Qty Sold</div>
+                                                    <div className="text-xs font-bold">{(item.quantity_sold || item.quantity || 0).toLocaleString()} Ltr</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Price</div>
+                                                    <div className="text-xs font-bold text-primary">Rs.{Number(item.selling_price || 0).toLocaleString()}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Total</div>
+                                                    <div className="text-xs font-black text-primary">Rs.{Number(item.sale_amount || (item.quantity_sold * item.selling_price) || 0).toLocaleString()}</div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    ) : (
-                                        <div className="text-center py-6 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
-                                            <div className="text-sm font-bold text-primary">{item.products?.product_name || "Stock Arrival"}</div>
-                                            <div className="text-xs text-muted-foreground mt-1">Quantity: {item.quantity} units</div>
-                                            <div className="text-[10px] mt-1 italic text-muted-foreground">Unit Price: Rs.{Number(item.purchase_price_per_unit || 0).toLocaleString()}</div>
+                                    )}
+
+                                    {isProductSale && (
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm">
+                                                <span className="text-sm font-bold text-primary">{item.products?.product_name || "Product Item"}</span>
+                                                <Badge className="h-5">x{item.quantity}</Badge>
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-2 pt-2 text-center">
+                                                <div>
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Qty</div>
+                                                    <div className="text-xs font-bold">{item.quantity} Unit</div>
+                                                </div>
+                                                <div>
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Price</div>
+                                                    <div className="text-xs font-bold">Rs. {Number(item.selling_price || 0).toLocaleString()}</div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <div className="text-[9px] text-muted-foreground uppercase font-black">Total</div>
+                                                    <div className="text-xs font-black text-primary">Rs. {Number(item.sale_amount || 0).toLocaleString()}</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {isPurchase && (
+                                        <div className="space-y-3">
+                                            {loading ? (
+                                                <div className="space-y-2">
+                                                    <Skeleton className="h-4 w-full" />
+                                                    <Skeleton className="h-4 w-3/4" />
+                                                </div>
+                                            ) : subItems.length > 0 ? (
+                                                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1 custom-scrollbar">
+                                                    {subItems.map((si) => (
+                                                        <div key={si.id} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 shadow-sm space-y-2">
+                                                            <div className="font-bold text-xs text-primary flex justify-between items-center">
+                                                                {si.products?.product_name}
+                                                                <Badge variant="outline" className="text-[8px] h-3.5 uppercase">ID# {si.id.slice(-4)}</Badge>
+                                                            </div>
+                                                            <div className="grid grid-cols-3 gap-2 text-center border-t border-slate-100 dark:border-slate-800 pt-2">
+                                                                <div>
+                                                                    <div className="text-[8px] text-muted-foreground uppercase font-black">Qty</div>
+                                                                    <div className="text-[10px] font-mono font-bold">{si.quantity} L</div>
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-[8px] text-muted-foreground uppercase font-black">Rate</div>
+                                                                    <div className="text-[10px] font-mono font-bold">Rs.{Number(si.purchase_price_per_unit).toLocaleString()}</div>
+                                                                </div>
+                                                                <div className="text-right">
+                                                                    <div className="text-[8px] text-muted-foreground uppercase font-black">Total</div>
+                                                                    <div className="text-[10px] font-black text-primary">Rs.{Number(si.total_amount).toLocaleString()}</div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-center py-6 bg-white dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                    <div className="text-sm font-bold text-primary">{item.products?.product_name || "Stock Arrival"}</div>
+                                                    <div className="grid grid-cols-3 gap-2 pt-2 mt-2 border-t text-center">
+                                                        <div>
+                                                            <div className="text-[9px] uppercase font-black">Qty</div>
+                                                            <div className="text-xs font-bold">{item.quantity} L</div>
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-[9px] uppercase font-black">Rate</div>
+                                                            <div className="text-xs font-bold">Rs.{Number(item.purchase_price_per_unit || 0).toLocaleString()}</div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-[9px] uppercase font-black">Total</div>
+                                                            <div className="text-xs font-black text-primary">Rs.{Number(item.total_amount || 0).toLocaleString()}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {isExpense && (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-between items-center border-b pb-2 border-dashed border-slate-200 dark:border-slate-800">
+                                                <span className="text-[10px] font-bold uppercase text-muted-foreground">Expense Category</span>
+                                                <Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-950 px-2 py-0 h-5">{item.expense_categories?.category_name || "Operating"}</Badge>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-100 dark:border-slate-800 text-center font-bold text-lg text-primary">
+                                                <div className="text-[9px] text-muted-foreground uppercase mb-1">Expense Amount</div>
+                                                Rs. {Number(item.amount).toLocaleString()}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            )}
+                            </div>
 
-                            {isExpense && (
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center border-b pb-2 border-dashed border-slate-200 dark:border-slate-800">
-                                        <span className="text-[10px] font-bold uppercase text-muted-foreground">Category</span>
-                                        <Badge variant="outline" className="text-[10px] bg-white dark:bg-slate-950">{item.expense_categories?.category_name || "Operating Expense"}</Badge>
-                                    </div>
-                                    <div className="space-y-1">
-                                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Paid From</span>
-                                        <div className="text-sm font-semibold capitalize flex items-center gap-2">
-                                            <Wallet className="h-3 w-3 text-primary" />
-                                            {item.payment_method?.replace('_', ' ') || "Cash"}
+                            {/* RIGHT COLUMN: STATUS, PAYMENT, SUMMARY */}
+                            <div className="space-y-4">
+                                <div className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-2">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                                    Order Metadata & Summary
+                                </div>
+                                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-4">
+                                    {/* ID & Status */}
+                                    <div className="grid grid-cols-2 gap-4 text-[10px]">
+                                        <div className="space-y-1">
+                                            <span className="text-muted-foreground uppercase font-black">Reference ID</span>
+                                            <div className="font-mono bg-white dark:bg-slate-900 border px-2 py-1.5 rounded-lg shadow-sm text-primary font-bold truncate">
+                                                {item.id.toUpperCase()}
+                                            </div>
+                                        </div>
+                                        <div className="text-right space-y-1">
+                                            <span className="text-muted-foreground uppercase font-black">System Status</span>
+                                            <div><Badge className="bg-emerald-500 hover:bg-emerald-600 text-[10px] h-7 px-3">COMPLETED</Badge></div>
                                         </div>
                                     </div>
+
+                                    <Separator className="opacity-50" />
+
+                                    {/* Payment & Dues */}
+                                    <div className="space-y-3 mt-2">
+                                        <div className="flex justify-between items-center bg-white dark:bg-slate-900/40 p-2 rounded-xl border border-slate-100 dark:border-slate-800">
+                                            <span className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Payment Method</span>
+                                            <Badge variant="outline" className="text-[10px] capitalize bg-white dark:bg-slate-950 font-bold px-3">
+                                                {item.payment_method?.replace('_', ' ') || "Cash"}
+                                            </Badge>
+                                        </div>
+                                        {item.payment_method === 'bank_transfer' && (
+                                            <div className="flex justify-between items-center bg-primary/5 p-2 rounded-xl border border-primary/10 animate-in slide-in-from-right-2">
+                                                <span className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Processed Via</span>
+                                                <span className="text-xs font-black text-primary flex items-center gap-1.5">
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                                                    {item.accounts?.account_name || "Bank Account"}
+                                                </span>
+                                            </div>
+                                        )}
+                                        <div className="pt-2 space-y-2.5">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="font-bold uppercase text-muted-foreground text-[10px]">Amount Paid</span>
+                                                <span className="font-black text-emerald-600">
+                                                    Rs. {Number(item.paid_amount || item.amount || item.sale_amount || 0).toLocaleString()}
+                                                </span>
+                                            </div>
+                                            {isPurchase && (
+                                                <div className="flex justify-between items-center text-xs">
+                                                    <span className="font-bold uppercase text-muted-foreground text-[10px]">Outstanding Balance</span>
+                                                    <span className={`font-black ${Number(item.due_amount || 0) > 0 ? "text-destructive" : "text-emerald-500"}`}>
+                                                        Rs. {Number(item.due_amount || 0).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {item.description && (
+                                        <div className="space-y-1.5 pt-2">
+                                            <span className="text-[10px] uppercase font-black text-muted-foreground">Notes / Remarks</span>
+                                            <div className="bg-amber-50 dark:bg-amber-500/5 text-[10px] italic p-3 rounded-xl border border-amber-100 dark:border-amber-500/20 text-amber-900 dark:text-amber-200 leading-relaxed shadow-inner">
+                                                "{item.description}"
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
-                        </div>
 
-                        {item.description && (
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] uppercase font-black text-muted-foreground tracking-widest">Description / Notes</Label>
-                                <div className="bg-orange-50/50 dark:bg-orange-500/5 text-xs italic p-3 rounded-xl border border-orange-100/50 dark:border-orange-500/20 text-orange-800 dark:text-orange-200 leading-relaxed">
-                                    "{item.description}"
+                                {/* GRAND TOTAL BOX IN SIDEBAR */}
+                                <div className="bg-primary rounded-2xl p-5 text-primary-foreground shadow-lg shadow-primary/20 relative overflow-hidden group">
+                                    <div className="absolute -right-4 -top-4 h-24 w-24 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700" />
+                                    <div className="relative z-10">
+                                        <div className="text-[11px] uppercase font-black tracking-widest opacity-80 decoration-white/20 underline underline-offset-4">Total Amount</div>
+                                        <div className="text-3xl font-black mt-2 tracking-tighter">
+                                            Rs. {(item.sale_amount || item.total_amount || item.amount || item.total_purchases || 0).toLocaleString()}
+                                        </div>
+                                        <div className="text-[9px] mt-1 font-medium opacity-60 italic">Inclusive of all items and taxes</div>
+                                    </div>
                                 </div>
                             </div>
-                        )}
-
-                        {/* TOTAL FOOTER CARD */}
-                        <div className="bg-primary/5 dark:bg-primary/10 rounded-2xl p-5 border border-primary/20 flex items-center justify-between">
-                            <div className="space-y-0.5">
-                                <div className="text-[10px] text-primary uppercase font-bold tracking-widest">Total Transaction</div>
-                                <div className="text-xs text-muted-foreground">Inclusive of all items</div>
-                            </div>
-                            <div className="text-2xl font-black text-primary tracking-tight">
-                                Rs. {(item.sale_amount || item.total_amount || item.amount || item.total_purchases || 0).toLocaleString()}
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 pt-2">
-                            <Button
-                                variant="outline"
-                                className="h-11 rounded-xl font-bold border-slate-200 dark:border-slate-800 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-900"
-                                onClick={() => window.print()}
-                            >
-                                <Printer className="mr-2 h-4 w-4" /> Print Receipt
-                            </Button>
-                            <Button
-                                variant="default"
-                                className="h-11 rounded-xl font-bold shadow-lg shadow-primary/20"
-                                onClick={() => onOpenChange(false)}
-                            >
-                                Done
-                            </Button>
                         </div>
                     </CardContent>
+
+                    <CardFooter className="bg-slate-50 dark:bg-slate-900/50 p-4 border-t gap-3 flex-shrink-0">
+                        <Button
+                            variant="outline"
+                            className="flex-1 h-11 rounded-xl font-bold border-slate-200 dark:border-slate-800 shadow-sm hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95"
+                            onClick={() => window.print()}
+                        >
+                            <Printer className="mr-2 h-4 w-4" /> Print Voucher
+                        </Button>
+                        <Button
+                            variant="default"
+                            className="flex-1 h-11 rounded-xl font-black shadow-lg shadow-primary/20 transition-all active:scale-95 hover:brightness-110"
+                            onClick={() => onOpenChange(false)}
+                        >
+                            Close Details
+                        </Button>
+                    </CardFooter>
                 </Card>
             </DialogContent>
         </Dialog>

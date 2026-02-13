@@ -348,7 +348,16 @@ export default function BalanceManagementPage() {
 
       const amount = parseFloat(transactionData.amount)
       if (!amount || amount <= 0) throw new Error("Please enter a valid amount")
-      if (!transactionData.description) throw new Error("Please enter a description/reason")
+
+      const defaultDescriptions = {
+        deposit: "Cash deposit to bank",
+        withdraw: "Bank withdrawal to cash",
+        add_cash: "Manual cash addition",
+        add_bank: "Manual bank balance addition"
+      }
+
+      const finalDescription = transactionData.description.trim() || defaultDescriptions[transactionType]
+
       if ((transactionType === "deposit" || transactionType === "add_bank" || transactionType === "withdraw") && !transactionData.bankId) {
         throw new Error("Please select a bank account")
       }
@@ -385,7 +394,7 @@ export default function BalanceManagementPage() {
         transaction_date: today,
         transaction_type: txTypeStr,
         category: categoryStr,
-        description: transactionData.description,
+        description: finalDescription,
         amount: amount,
         from_account: fromAccount,
         to_account: toAccount,
