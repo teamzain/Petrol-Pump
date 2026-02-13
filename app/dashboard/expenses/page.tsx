@@ -65,6 +65,12 @@ interface DailyBalance {
     is_closed: boolean
 }
 
+interface BankAccount {
+    id: string
+    account_name: string
+    current_balance: number
+}
+
 interface Expense {
     id: string
     expense_date: string
@@ -83,6 +89,7 @@ export default function ExpensesPage() {
     const [saving, setSaving] = useState(false)
     const [categories, setCategories] = useState<ExpenseCategory[]>([])
     const [todayBalance, setTodayBalance] = useState<DailyBalance | null>(null)
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
     const [error, setError] = useState("")
     const [success, setSuccess] = useState<string | null>(null)
 
@@ -93,6 +100,7 @@ export default function ExpensesPage() {
         categoryId: "",
         amount: "",
         paymentMethod: "cash",
+        bankAccountId: "",
         description: "",
         paidTo: "",
         invoiceNumber: "",
@@ -127,8 +135,6 @@ export default function ExpensesPage() {
                 .eq("balance_date", today)
                 .maybeSingle()
 
-            if (balanceData) setTodayBalance(balanceData)
-
             // 3. Fetch Expenses
             const { data: expensesData } = await supabase
                 .from("expenses")
@@ -141,6 +147,21 @@ export default function ExpensesPage() {
                 .limit(100)
 
             if (expensesData) setExpenses(expensesData as any)
+
+            // 4. Fetch Bank Accounts
+            const { data: bankData } = await supabase
+                .from("accounts")
+                .select("id, account_name, current_balance")
+                .eq("account_type", "bank")
+                .eq("status", "active")
+                .order("account_name")
+
+            if (bankData) {
+                setBankAccounts(bankData)
+                if (bankData.length > 0) {
+                    setFormData(prev => ({ ...prev, bankAccountId: bankData[0].id }))
+                }
+            }
 
         } catch (err: any) {
             setError(err.message || "Failed to load data")
@@ -190,9 +211,9 @@ export default function ExpensesPage() {
         }
 
         const isCash = formData.paymentMethod === "cash"
-        const available = isCash ? currentCash : currentBank
-        // Warning if insufficient, but allow if it's a "backdate" or if balance isn't strictly tracked for now
-        // Usually it's better to warn and block
+        const selectedBank = bankAccounts.find(b => b.id === formData.bankAccountId)
+        const available = isCash ? currentCash : (selectedBank ? Number(selectedBank.current_balance) : 0)
+
         if (amountNum > available) {
             setError(`Insufficient ${isCash ? "Cash" : "Bank"} Balance! Available: Rs. ${available.toLocaleString()}`)
             return
@@ -208,6 +229,7 @@ export default function ExpensesPage() {
                 category_id: formData.categoryId,
                 amount: amountNum,
                 payment_method: formData.paymentMethod,
+                bank_account_id: formData.paymentMethod !== "cash" ? formData.bankAccountId : null,
                 description: formData.description,
                 paid_to: formData.paidTo,
                 invoice_number: formData.invoiceNumber,
@@ -224,6 +246,7 @@ export default function ExpensesPage() {
                 categoryId: "",
                 amount: "",
                 paymentMethod: "cash",
+                bankAccountId: bankAccounts.length > 0 ? bankAccounts[0].id : "",
                 description: "",
                 paidTo: "",
                 invoiceNumber: "",
@@ -327,12 +350,30 @@ export default function ExpensesPage() {
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                <SelectItem value="cash">Cash Account</SelectItem>
-                                                <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                                                <SelectItem value="cheque">Cheque</SelectItem>
+                                                <SelectItem value="cash">🏛️ Cash Account</SelectItem>
+                                                <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
+                                                <SelectItem value="cheque">🏷️ Cheque</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
+
+                                    {(formData.paymentMethod === "bank_transfer" || formData.paymentMethod === "cheque") && (
+                                        <div className="space-y-2 animate-in slide-in-from-top-2">
+                                            <Label htmlFor="bankAccount">Select Bank Account</Label>
+                                            <Select value={formData.bankAccountId} onValueChange={(v) => setFormData({ ...formData, bankAccountId: v })}>
+                                                <SelectTrigger id="bankAccount">
+                                                    <SelectValue placeholder="Choose Bank..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {bankAccounts.map(bank => (
+                                                        <SelectItem key={bank.id} value={bank.id}>
+                                                            {bank.account_name} ({formatCurrency(bank.current_balance)})
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="desc">Description <span className="text-destructive">*</span></Label>
@@ -418,12 +459,12 @@ export default function ExpensesPage() {
                 </Card>
                 <Card className="border-l-4 border-l-blue-500 shadow-sm">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Available Bank</CardTitle>
+                        <CardTitle className="text-sm font-medium">Total Bank Balance</CardTitle>
                         <PiggyBank className="h-4 w-4 text-blue-500" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(currentBank)}</div>
-                        <p className="text-xs text-muted-foreground mt-1 font-medium">Bank Balance</p>
+                        <div className="text-2xl font-bold">{formatCurrency(bankAccounts.reduce((sum, b) => sum + Number(b.current_balance), 0))}</div>
+                        <p className="text-xs text-muted-foreground mt-1 font-medium">Across all bank accounts</p>
                     </CardContent>
                 </Card>
             </div>

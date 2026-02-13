@@ -9,7 +9,24 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Moon, Sun, Laptop, User, Shield, Info, Check, Loader2 } from "lucide-react"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog"
+import { Moon, Sun, Laptop, User, Shield, Info, Check, Loader2, Landmark, Plus, Edit2, Trash2, Power } from "lucide-react"
+
+interface BankAccount {
+    id: string
+    account_name: string
+    account_number: string | null
+    opening_balance: number
+    current_balance: number
+    status: 'active' | 'inactive'
+}
 
 export default function SettingsPage() {
     const { setTheme, theme } = useTheme()
@@ -41,7 +58,67 @@ export default function SettingsPage() {
     useEffect(() => {
         fetchProfile()
         fetchSystemConfig()
+        fetchBankAccounts()
     }, [])
+
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+    const [bankFormData, setBankFormData] = useState({
+        id: '',
+        account_name: '',
+        account_number: '',
+        opening_balance: '',
+        status: 'active' as 'active' | 'inactive'
+    })
+    const [isBankDialogOpen, setIsBankDialogOpen] = useState(false)
+    const [isEditingBank, setIsEditingBank] = useState(false)
+
+    const fetchBankAccounts = async () => {
+        const { data } = await supabase
+            .from('accounts')
+            .select('*')
+            .eq('account_type', 'bank')
+            .order('account_name')
+        if (data) setBankAccounts(data)
+    }
+
+    const handleBankSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        setMessage(null)
+
+        try {
+            const payload = {
+                account_name: bankFormData.account_name,
+                account_number: bankFormData.account_number,
+                opening_balance: parseFloat(bankFormData.opening_balance) || 0,
+                account_type: 'bank',
+                status: bankFormData.status
+            }
+
+            if (isEditingBank) {
+                const { error } = await supabase
+                    .from('accounts')
+                    .update(payload)
+                    .eq('id', bankFormData.id)
+                if (error) throw error
+                setMessage({ type: 'success', text: 'Bank account updated!' })
+            } else {
+                // For new accounts, current_balance = opening_balance
+                const { error } = await supabase
+                    .from('accounts')
+                    .insert({ ...payload, current_balance: payload.opening_balance })
+                if (error) throw error
+                setMessage({ type: 'success', text: 'Bank account added!' })
+            }
+
+            setIsBankDialogOpen(false)
+            fetchBankAccounts()
+        } catch (error: any) {
+            setMessage({ type: 'error', text: error.message || 'Failed to save bank account' })
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const fetchSystemConfig = async () => {
         try {
@@ -193,6 +270,9 @@ export default function SettingsPage() {
                     <TabsTrigger value="system" className="flex items-center gap-2">
                         <Shield className="w-4 h-4" /> System
                     </TabsTrigger>
+                    <TabsTrigger value="banks" className="flex items-center gap-2">
+                        <Landmark className="w-4 h-4" /> Banks
+                    </TabsTrigger>
                     <TabsTrigger value="about" className="flex items-center gap-2">
                         <Info className="w-4 h-4" /> About
                     </TabsTrigger>
@@ -337,40 +417,154 @@ export default function SettingsPage() {
                     </Card>
                 </TabsContent>
 
-                {/* System Tab */}
-                <TabsContent value="system">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>System Configuration</CardTitle>
-                            <CardDescription>
-                                Manage system-wide settings and authorization codes.
-                            </CardDescription>
-                        </CardHeader>
-                        <form onSubmit={handlePinUpdate}>
-                            <CardContent className="space-y-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="admin-pin">Admin Unlock PIN</Label>
-                                    <Input
-                                        id="admin-pin"
-                                        type="text"
-                                        maxLength={6}
-                                        value={systemConfig.adminPin}
-                                        onChange={(e) => setSystemConfig({ ...systemConfig, adminPin: e.target.value.replace(/\D/g, '') })}
-                                        placeholder="Enter numeric PIN"
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        This PIN is used to unlock nozzle readings in the Sales page.
-                                    </p>
+                {/* Banks Tab */}
+                <TabsContent value="banks" className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <div className="space-y-1">
+                            <h3 className="text-lg font-medium">Bank Accounts</h3>
+                            <p className="text-sm text-muted-foreground">Manage your payment methods and balances.</p>
+                        </div>
+                        <Button onClick={() => {
+                            setBankFormData({ id: '', account_name: '', account_number: '', opening_balance: '', status: 'active' })
+                            setIsEditingBank(false)
+                            setIsBankDialogOpen(true)
+                        }}>
+                            <Plus className="w-4 h-4 mr-2" /> Add Bank
+                        </Button>
+                    </div>
+
+                    <div className="grid gap-4">
+                        {bankAccounts.map(bank => (
+                            <Card key={bank.id} className={`overflow-hidden transition-all hover:shadow-md border-2 ${bank.status === 'inactive' ? 'opacity-50 grayscale' : 'hover:border-primary/50'}`}>
+                                <div className={`h-1.5 w-full ${bank.status === 'inactive' ? 'bg-muted' : 'bg-gradient-to-r from-primary/80 to-primary'}`} />
+                                <CardHeader className="flex flex-row items-center justify-between space-y-0 py-5">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 rounded-2xl bg-primary/5 border border-primary/10 shadow-inner">
+                                            <Landmark className="w-6 h-6 text-primary" />
+                                        </div>
+                                        <div>
+                                            <CardTitle className="text-lg font-bold tracking-tight">{bank.account_name}</CardTitle>
+                                            <CardDescription className="font-mono text-[10px] uppercase tracking-widest font-bold text-muted-foreground/70 flex items-center gap-2 mt-0.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                                                {bank.account_number || 'No Account Number'}
+                                            </CardDescription>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4">
+                                        <div className="text-right px-4 py-2 rounded-xl bg-secondary/30 border border-secondary/50 backdrop-blur-sm">
+                                            <div className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter mb-0.5">Current Balance</div>
+                                            <div className="text-lg font-black text-primary tracking-tight">
+                                                <span className="text-xs mr-0.5 opacity-60">Rs.</span>
+                                                {bank.current_balance.toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-primary/5 hover:text-primary transition-colors" onClick={() => {
+                                            setBankFormData({
+                                                id: bank.id,
+                                                account_name: bank.account_name,
+                                                account_number: bank.account_number || '',
+                                                opening_balance: bank.opening_balance.toString(),
+                                                status: bank.status
+                                            })
+                                            setIsEditingBank(true)
+                                            setIsBankDialogOpen(true)
+                                        }}>
+                                            <Edit2 className="w-5 h-5" />
+                                        </Button>
+                                    </div>
+                                </CardHeader>
+                            </Card>
+                        ))}
+
+                        {bankAccounts.length === 0 && (
+                            <div className="text-center py-12 border-2 border-dashed rounded-xl">
+                                <Landmark className="w-12 h-12 text-muted-foreground/20 mx-auto mb-4" />
+                                <p className="text-muted-foreground font-medium">No bank accounts configured yet.</p>
+                                <Button variant="link" onClick={() => setIsBankDialogOpen(true)}>Add your first bank account</Button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Bank Dialog */}
+                    <Dialog open={isBankDialogOpen} onOpenChange={setIsBankDialogOpen}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>{isEditingBank ? 'Edit Bank Account' : 'Add New Bank Account'}</DialogTitle>
+                                <DialogDescription>
+                                    Provide details for your bank account. Opening balance sets the starting point.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <form onSubmit={handleBankSubmit}>
+                                <div className="grid gap-6 py-6">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="bank-name" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Bank Name / Display Name</Label>
+                                        <Input
+                                            id="bank-name"
+                                            required
+                                            value={bankFormData.account_name}
+                                            onChange={(e) => setBankFormData({ ...bankFormData, account_name: e.target.value })}
+                                            placeholder="e.g. Meezan Bank Main"
+                                            className="h-12 rounded-xl border-2 focus-visible:ring-primary/20 bg-background/50"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="bank-account" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Account Number (Optional)</Label>
+                                        <Input
+                                            id="bank-account"
+                                            value={bankFormData.account_number}
+                                            onChange={(e) => setBankFormData({ ...bankFormData, account_number: e.target.value })}
+                                            placeholder="XXXX-XXXX-XXXX"
+                                            className="h-12 rounded-xl border-2 focus-visible:ring-primary/20 font-mono bg-background/50"
+                                        />
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="bank-opening" className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Opening Balance (Rs)</Label>
+                                        <div className="relative">
+                                            <Input
+                                                id="bank-opening"
+                                                type="number"
+                                                required
+                                                disabled={isEditingBank}
+                                                value={bankFormData.opening_balance}
+                                                onChange={(e) => setBankFormData({ ...bankFormData, opening_balance: e.target.value })}
+                                                placeholder="0.00"
+                                                className="h-12 rounded-xl border-2 focus-visible:ring-primary/20 font-bold text-lg bg-background/50 pl-10"
+                                            />
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">Rs</span>
+                                        </div>
+                                        {isEditingBank && <p className="text-[10px] text-muted-foreground italic ml-1 opacity-70">Opening balance cannot be changed after creation.</p>}
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Account Status</Label>
+                                        <div className="flex p-1.5 bg-secondary/50 backdrop-blur-sm rounded-2xl gap-1.5 border-2 border-secondary">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                className={`flex-1 rounded-xl h-10 transition-all duration-300 ${bankFormData.status === 'active' ? 'bg-background shadow-md text-primary font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                                                onClick={() => setBankFormData({ ...bankFormData, status: 'active' })}
+                                            >
+                                                Active
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                className={`flex-1 rounded-xl h-10 transition-all duration-300 ${bankFormData.status === 'inactive' ? 'bg-background shadow-md text-destructive font-bold' : 'text-muted-foreground hover:text-foreground'}`}
+                                                onClick={() => setBankFormData({ ...bankFormData, status: 'inactive' })}
+                                            >
+                                                Inactive
+                                            </Button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </CardContent>
-                            <CardFooter>
-                                <Button type="submit" disabled={loading || !systemConfig.adminPin}>
-                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Update PIN
-                                </Button>
-                            </CardFooter>
-                        </form>
-                    </Card>
+                                <DialogFooter className="pt-2">
+                                    <Button type="submit" disabled={loading} className="w-full h-12 rounded-xl font-bold text-lg shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]">
+                                        {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
+                                        {isEditingBank ? 'Update Bank Account' : 'Register Bank Account'}
+                                    </Button>
+                                </DialogFooter>
+                            </form>
+                        </DialogContent>
+                    </Dialog>
                 </TabsContent>
 
                 {/* About Tab */}

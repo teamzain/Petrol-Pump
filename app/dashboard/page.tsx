@@ -71,38 +71,20 @@ export default function DashboardPage() {
         let cashBal = 0
         let bankBal = 0
 
-        // First try today's record
-        const { data: todayBalance } = await supabase
-          .from("daily_balances")
-          .select("*")
-          .eq("balance_date", today)
-          .maybeSingle()
+        // Fetch current balances from accounts table (Source of Truth)
+        const { data: accounts } = await supabase
+          .from("accounts")
+          .select("account_type, current_balance")
+          .eq("status", "active")
 
-        if (todayBalance) {
-          // Use closing if available (running balance), otherwise opening
-          cashBal = Number(todayBalance.cash_closing ?? todayBalance.cash_opening ?? 0)
-          bankBal = Number(todayBalance.bank_closing ?? todayBalance.bank_opening ?? 0)
-        } else {
-          // Fallback: get the latest day's balance (could be yesterday or earlier)
-          const { data: latestDays } = await supabase
-            .from("daily_balances")
-            .select("*")
-            .order("balance_date", { ascending: false })
-            .limit(1)
-          if (latestDays && latestDays.length > 0) {
-            const lastDay = latestDays[0]
-            cashBal = Number(lastDay.cash_closing ?? lastDay.cash_opening ?? 0)
-            bankBal = Number(lastDay.bank_closing ?? lastDay.bank_opening ?? 0)
-          } else {
-            // No daily_balances at all, try accounts table as final fallback
-            const { data: accounts } = await supabase.from("accounts").select("*")
-            if (accounts) {
-              for (const acc of accounts) {
-                if (acc.account_type === "cash") cashBal = Number(acc.current_balance || 0)
-                if (acc.account_type === "bank") bankBal = Number(acc.current_balance || 0)
-              }
-            }
-          }
+        if (accounts) {
+          cashBal = accounts
+            .filter(a => a.account_type === 'cash')
+            .reduce((sum, a) => sum + Number(a.current_balance || 0), 0)
+
+          bankBal = accounts
+            .filter(a => a.account_type === 'bank')
+            .reduce((sum, a) => sum + Number(a.current_balance || 0), 0)
         }
 
         // Fetch today's fuel sales
@@ -146,9 +128,9 @@ export default function DashboardPage() {
 
     fetchStats()
 
-    // Realtime subscription
-    const channel = supabase
-      .channel('dashboard_updates')
+    // Realtime subscription for daily_balances
+    const balanceChannel = supabase
+      .channel('dashboard_balance_updates')
       .on(
         'postgres_changes',
         {
@@ -162,8 +144,25 @@ export default function DashboardPage() {
       )
       .subscribe()
 
+    // Realtime subscription for accounts
+    const accountsChannel = supabase
+      .channel('dashboard_accounts_updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'accounts',
+        },
+        () => {
+          fetchStats()
+        }
+      )
+      .subscribe()
+
     return () => {
-      supabase.removeChannel(channel)
+      supabase.removeChannel(balanceChannel)
+      supabase.removeChannel(accountsChannel)
     }
   }, [supabase])
 

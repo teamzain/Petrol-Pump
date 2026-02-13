@@ -50,6 +50,13 @@ interface Supplier {
   supplier_type: string
 }
 
+interface BankAccount {
+  id: string
+  account_name: string
+  account_number: string | null
+  current_balance: number
+}
+
 interface Product {
   id: string
   product_name: string
@@ -87,6 +94,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
 
   // Data State
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [todayBalance, setTodayBalance] = useState<DailyBalance | null>(null)
 
@@ -102,6 +110,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
     purchase_date: getTodayPKT(),
     supplier_id: "",
     payment_method: "cash",
+    bank_account_id: "",
     invoice_number: "",
     notes: "",
     paid_amount: "", // User input for amount paid
@@ -120,6 +129,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   useEffect(() => {
     if (open) {
       fetchSuppliers()
+      fetchBankAccounts()
       fetchProducts()
       fetchTodayBalance()
       resetForm()
@@ -134,6 +144,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
       purchase_date: getTodayPKT(),
       supplier_id: "",
       payment_method: "cash",
+      bank_account_id: "",
       invoice_number: `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
       notes: "",
       paid_amount: "",
@@ -147,6 +158,16 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   const fetchSuppliers = async () => {
     const { data } = await supabase.from("suppliers").select("id, supplier_name, supplier_type").eq("status", "active").order("supplier_name")
     if (data) setSuppliers(data)
+  }
+
+  const fetchBankAccounts = async () => {
+    const { data } = await supabase.from("accounts").select("id, account_name, account_number, current_balance").eq("account_type", "bank").eq("status", "active").order("account_name")
+    if (data) {
+      setBankAccounts(data)
+      if (data.length > 0) {
+        setFormData(prev => ({ ...prev, bank_account_id: data[0].id }))
+      }
+    }
   }
 
   const fetchProducts = async () => {
@@ -178,7 +199,8 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   const availableBalance = (() => {
     if (!todayBalance) return 0
     if (formData.payment_method === "cash") return Number(todayBalance.cash_closing ?? todayBalance.cash_opening ?? 0)
-    return Number(todayBalance.bank_closing ?? todayBalance.bank_opening ?? 0)
+    const selectedBank = bankAccounts.find(b => b.id === formData.bank_account_id)
+    return selectedBank ? Number(selectedBank.current_balance) : 0
   })()
 
   // --- Handlers ---
@@ -220,6 +242,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   const validateOrder = async (): Promise<string | null> => {
     if (!formData.purchase_date) return "Select purchase date"
     if (!formData.supplier_id) return "Select supplier"
+    if (formData.payment_method === "bank_transfer" && !formData.bank_account_id) return "Select a bank account"
     if (!formData.invoice_number.trim()) return "Enter invoice number"
     if (cart.length === 0) return "Add at least one product"
 
@@ -251,6 +274,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
         paid_amount: paidAmount,
         due_amount: dueAmount,
         payment_method: formData.payment_method,
+        bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
         status: "completed",
         notes: formData.notes
       }).select().single()
@@ -269,6 +293,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
           purchase_price_per_unit: item.unitPrice,
           total_amount: item.total,
           payment_method: formData.payment_method,
+          bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
           // invoice_number is optional now, skipping or using order's
           status: "completed",
           old_weighted_avg: item.product.purchase_price,
@@ -320,6 +345,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
           description: `Inv# ${formData.invoice_number} (Partial/Full Payment)`,
           amount: paidAmount,
           payment_method: formData.payment_method,
+          bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
           reference_type: "purchase_order",
           reference_id: order.id
         })
@@ -454,10 +480,27 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
                       <SelectTrigger className="h-10 rounded-xl font-bold border-2"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="cash">🏛️ Cash Account ({formatCurrency(Number(todayBalance?.cash_closing ?? todayBalance?.cash_opening ?? 0))})</SelectItem>
-                        <SelectItem value="bank_transfer">🏦 Bank Account ({formatCurrency(Number(todayBalance?.bank_closing ?? todayBalance?.bank_opening ?? 0))})</SelectItem>
+                        <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {formData.payment_method === "bank_transfer" && (
+                    <div className="space-y-1.5 animate-in slide-in-from-top-2">
+                      <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Bank Account</Label>
+                      <Select value={formData.bank_account_id || ""} onValueChange={(v) => setFormData({ ...formData, bank_account_id: v })}>
+                        <SelectTrigger className="h-10 rounded-xl font-bold border-2"><SelectValue placeholder="Chose Bank..." /></SelectTrigger>
+                        <SelectContent>
+                          {bankAccounts.map(bank => (
+                            <SelectItem key={bank.id} value={bank.id}>
+                              {bank.account_name} ({formatCurrency(bank.current_balance)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Internal Notes</Label>
                     <Textarea rows={2} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Shipping details, trailer #, etc..." className="resize-none rounded-xl bg-muted/30 focus-visible:ring-primary/30 text-xs" />
@@ -549,6 +592,6 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
           </div>
         )}
       </DialogContent>
-    </Dialog>
+    </Dialog >
   )
 }

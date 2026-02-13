@@ -63,11 +63,20 @@ interface DailyBalance {
   notes: string | null
 }
 
+interface BankAccount {
+  id: string
+  account_name: string
+  account_number: string | null
+  current_balance: number
+  account_type: string
+}
+
 export default function BalanceManagementPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [todayBalance, setTodayBalance] = useState<DailyBalance | null>(null)
   const [balanceHistory, setBalanceHistory] = useState<DailyBalance[]>([])
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [openingDialogOpen, setOpeningDialogOpen] = useState(false)
@@ -75,10 +84,11 @@ export default function BalanceManagementPage() {
 
   // Transaction State
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false)
-  const [transactionType, setTransactionType] = useState<"deposit" | "add_cash" | "add_bank">("deposit")
+  const [transactionType, setTransactionType] = useState<"deposit" | "add_cash" | "add_bank" | "withdraw">("deposit")
   const [transactionData, setTransactionData] = useState({
     amount: "",
     description: "",
+    bankId: ""
   })
 
   const [openingBalances, setOpeningBalances] = useState({
@@ -175,14 +185,31 @@ export default function BalanceManagementPage() {
       }
     }
 
-    // Fetch balance history (last 30 days)
+    // 3. Fetch Bank Accounts
+    const { data: bankData } = await supabase
+      .from("accounts")
+      .select("*")
+      .eq("account_type", "bank")
+      .eq("status", "active")
+      .order("account_name")
+
+    if (bankData) {
+      setBankAccounts(bankData)
+      if (bankData.length > 0) {
+        setTransactionData(prev => ({ ...prev, bankId: bankData[0].id }))
+      }
+    }
+
+    // 4. Fetch Balance History (Recent 30 days)
     const { data: historyData } = await supabase
       .from("daily_balances")
       .select("*")
       .order("balance_date", { ascending: false })
       .limit(30)
 
-    if (historyData) setBalanceHistory(historyData)
+    if (historyData) {
+      setBalanceHistory(historyData)
+    }
 
     setLoading(false)
   }, [supabase, today])
@@ -287,7 +314,7 @@ export default function BalanceManagementPage() {
       const user = await supabase.auth.getUser()
 
       const cashClosing = todayBalance.cash_closing ?? todayBalance.cash_opening
-      const bankClosing = todayBalance.bank_closing ?? todayBalance.bank_opening
+      const bankClosing = totalBankAssets
 
       const { error: updateError } = await supabase
         .from("daily_balances")
@@ -322,48 +349,54 @@ export default function BalanceManagementPage() {
       const amount = parseFloat(transactionData.amount)
       if (!amount || amount <= 0) throw new Error("Please enter a valid amount")
       if (!transactionData.description) throw new Error("Please enter a description/reason")
+      if ((transactionType === "deposit" || transactionType === "add_bank" || transactionType === "withdraw") && !transactionData.bankId) {
+        throw new Error("Please select a bank account")
+      }
 
       const user = await supabase.auth.getUser()
       const userId = user.data.user?.id
 
+      const { data: cashAcc } = await supabase.from("accounts").select("id").eq("account_type", "cash").limit(1).single()
+      const cashAccountId = cashAcc?.id
+
+      let fromAccount = null
+      let toAccount = null
+      let txTypeStr = "income"
+      let categoryStr = "manual_adjustment"
+
+      if (transactionType === "deposit") {
+        txTypeStr = "transfer"
+        categoryStr = "bank_deposit"
+        fromAccount = cashAccountId
+        toAccount = transactionData.bankId
+      } else if (transactionType === "withdraw") {
+        txTypeStr = "transfer"
+        categoryStr = "bank_withdrawal"
+        fromAccount = transactionData.bankId
+        toAccount = cashAccountId
+      } else if (transactionType === "add_cash") {
+        toAccount = cashAccountId
+      } else if (transactionType === "add_bank") {
+        toAccount = transactionData.bankId
+      }
+
       // 1. Log Transaction
       const { error: txError } = await supabase.from("transactions").insert({
-        transaction_type: transactionType === "deposit" ? "transfer" : "income",
-        category: transactionType === "deposit" ? "bank_deposit" : "manual_adjustment",
+        transaction_date: today,
+        transaction_type: txTypeStr,
+        category: categoryStr,
         description: transactionData.description,
         amount: amount,
+        from_account: fromAccount,
+        to_account: toAccount,
         created_by: userId,
+        bank_account_id: (transactionType === "add_cash") ? null : transactionData.bankId
       })
       if (txError) throw txError
 
-      // 2. Update Daily Balance
-      let updateData = {}
-      const currentCash = todayBalance.cash_closing ?? todayBalance.cash_opening ?? 0
-      const currentBank = todayBalance.bank_closing ?? todayBalance.bank_opening ?? 0
-
-      if (transactionType === "deposit") {
-        // Cash -> Bank
-        if (currentCash < amount) throw new Error("Insufficient cash balance")
-        updateData = {
-          cash_closing: currentCash - amount,
-          bank_closing: currentBank + amount
-        }
-      } else if (transactionType === "add_cash") {
-        updateData = { cash_closing: currentCash + amount }
-      } else if (transactionType === "add_bank") {
-        updateData = { bank_closing: currentBank + amount }
-      }
-
-      const { error: updateError } = await supabase
-        .from("daily_balances")
-        .update(updateData)
-        .eq("id", todayBalance.id)
-
-      if (updateError) throw updateError
-
       setSuccess("Transaction recorded successfully!")
       setTransactionDialogOpen(false)
-      setTransactionData({ amount: "", description: "" })
+      setTransactionData({ amount: "", description: "", bankId: bankAccounts.length > 0 ? bankAccounts[0].id : "" })
       fetchBalances()
     } catch (err) {
       console.error(err)
@@ -380,6 +413,7 @@ export default function BalanceManagementPage() {
 
   const currentCashBalance = todayBalance?.cash_closing ?? todayBalance?.cash_opening ?? 0
   const currentBankBalance = todayBalance?.bank_closing ?? todayBalance?.bank_opening ?? 0
+  const totalBankAssets = bankAccounts.reduce((acc, bank) => acc + (bank.current_balance || 0), 0)
 
   return (
     <div className="flex flex-col gap-6">
@@ -425,67 +459,85 @@ export default function BalanceManagementPage() {
       </div>
 
       {/* Current Balance Cards */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="border-2">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-2 shadow-sm hover:shadow-md transition-all">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-medium flex items-center gap-2">
-              <Wallet className="h-5 w-5 text-primary" />
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-muted-foreground">
+              <Wallet className="h-4 w-4 text-primary" />
               Cash Balance
             </CardTitle>
             {todayBalance?.is_closed && (
-              <Badge variant="secondary" className="gap-1">
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px] gap-1 bg-amber-100 text-amber-700 border-amber-200">
                 <Lock className="h-3 w-3" />
                 Closed
               </Badge>
             )}
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(currentCashBalance)}</div>
-            <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <div className="flex justify-between">
-                <span>Opening:</span>
-                <span>{formatCurrency(todayBalance?.cash_opening ?? 0)}</span>
+            <div className="text-3xl font-black tracking-tight text-foreground">{formatCurrency(currentCashBalance)}</div>
+            <div className="mt-4 pt-4 border-t space-y-2 text-xs font-semibold">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground uppercase flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
+                  Opening
+                </span>
+                <span className="text-foreground">{formatCurrency(todayBalance?.cash_opening ?? 0)}</span>
               </div>
-              {todayBalance?.cash_closing !== null && (
-                <div className="flex justify-between">
-                  <span>Closing:</span>
-                  <span>{formatCurrency(todayBalance?.cash_closing)}</span>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border-2">
+        <Card className="border-2 shadow-sm hover:shadow-md transition-all bg-primary/[0.02]">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-lg font-medium flex items-center gap-2">
-              <Banknote className="h-5 w-5 text-primary" />
-              Bank Balance
+            <CardTitle className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 text-muted-foreground">
+              <Banknote className="h-4 w-4 text-primary" />
+              Total Bank Balance
             </CardTitle>
-            {todayBalance?.is_closed && (
-              <Badge variant="secondary" className="gap-1">
-                <Lock className="h-3 w-3" />
-                Closed
-              </Badge>
-            )}
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatCurrency(currentBankBalance)}</div>
-            <div className="mt-2 space-y-1 text-sm text-muted-foreground">
-              <div className="flex justify-between">
-                <span>Opening:</span>
-                <span>{formatCurrency(todayBalance?.bank_opening ?? 0)}</span>
+            <div className="text-3xl font-black tracking-tight text-primary">{formatCurrency(totalBankAssets)}</div>
+            <div className="mt-4 pt-4 border-t space-y-2 text-xs font-semibold">
+              <div className="flex justify-between items-center text-[10px] text-muted-foreground uppercase tracking-wider">
+                <span>Aggregate Funds across {bankAccounts.length} Banks</span>
               </div>
-              {todayBalance?.bank_closing !== null && (
-                <div className="flex justify-between">
-                  <span>Closing:</span>
-                  <span>{formatCurrency(todayBalance?.bank_closing)}</span>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
+
+        <Card className="border-2 border-dashed flex flex-col items-center justify-center p-6 text-center bg-muted/30">
+          <div className="p-3 rounded-full bg-background border shadow-sm mb-3">
+            <RefreshCw className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <h4 className="font-bold text-sm">Real-time Sync</h4>
+          <p className="text-[10px] text-muted-foreground px-4">Balances are automatically updated across all modules.</p>
+        </Card>
       </div>
+
+      <Card className="border-2 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-primary/50 via-primary to-primary/50" />
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-lg font-medium flex items-center gap-2">
+            <Banknote className="h-5 w-5 text-primary" />
+            Bank Accounts Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {bankAccounts.map(bank => (
+              <div key={bank.id} className="p-4 border rounded-xl bg-muted/20 hover:bg-muted/40 transition-colors">
+                <p className="text-xs font-bold text-muted-foreground uppercase">{bank.account_name}</p>
+                <p className="text-xl font-black mt-1">{formatCurrency(bank.current_balance)}</p>
+                {bank.account_number && <p className="text-[10px] text-muted-foreground font-mono mt-1">Acc: {bank.account_number}</p>}
+              </div>
+            ))}
+            {bankAccounts.length === 0 && <p className="text-sm text-muted-foreground italic col-span-full">No active bank accounts found.</p>}
+          </div>
+          <div className="mt-4 pt-4 border-t flex justify-between items-center">
+            <span className="text-sm font-bold text-muted-foreground">Total Bank Assets:</span>
+            <span className="text-xl font-black text-primary">{formatCurrency(bankAccounts.reduce((sum, b) => sum + Number(b.current_balance), 0))}</span>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Daily Actions */}
       <Card>
@@ -576,10 +628,11 @@ export default function BalanceManagementPage() {
                   {balanceHistory.map((balance) => {
                     const isToday = balance.balance_date === today
                     const cashChange = (balance.cash_closing ?? balance.cash_opening) - balance.cash_opening
-                    const bankChange = (balance.bank_closing ?? balance.bank_opening) - balance.bank_opening
+                    const displayBankClosing = isToday ? totalBankAssets : balance.bank_closing
+                    const bankChange = (displayBankClosing ?? balance.bank_opening) - balance.bank_opening
 
                     return (
-                      <TableRow key={balance.id} className={isToday ? "bg-muted/50" : ""}>
+                      <TableRow key={balance.id} className={isToday ? "bg-muted/50 font-semibold" : ""}>
                         <TableCell className="font-medium">
                           {new Date(balance.balance_date).toLocaleDateString("en-PK", {
                             weekday: "short",
@@ -605,9 +658,9 @@ export default function BalanceManagementPage() {
                         </TableCell>
                         <TableCell className="text-right">{formatCurrency(balance.bank_opening)}</TableCell>
                         <TableCell className="text-right">
-                          {balance.bank_closing !== null ? (
+                          {displayBankClosing !== null ? (
                             <span className="flex items-center justify-end gap-1">
-                              {formatCurrency(balance.bank_closing)}
+                              {formatCurrency(displayBankClosing)}
                               {bankChange !== 0 && (
                                 <span className={`text-xs ${bankChange > 0 ? "text-primary" : "text-destructive"}`}>
                                   {bankChange > 0 ? <TrendingUp className="h-3 w-3 inline" /> : <TrendingDown className="h-3 w-3 inline" />}
@@ -739,29 +792,52 @@ export default function BalanceManagementPage() {
           <DialogHeader>
             <DialogTitle>
               {transactionType === "deposit" ? "Transfer Cash to Bank" :
-                transactionType === "add_cash" ? "Add Cash Balance" : "Add Bank Balance"}
+                transactionType === "withdraw" ? "Withdraw Bank to Cash" :
+                  transactionType === "add_cash" ? "Add Cash Balance" : "Add Bank Balance"}
             </DialogTitle>
             <DialogDescription>
               {transactionType === "deposit"
-                ? "Record a deposit of cash earnings into the bank account."
-                : "Manually add funds to the balance with a reason."}
+                ? "Record a deposit of cash earnings into a bank account."
+                : transactionType === "withdraw" ? "Record a withdrawal from a bank account into cash."
+                  : "Manually add funds to the balance with a reason."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            {transactionType !== "deposit" && (
-              <div className="space-y-2">
-                <Label>Type</Label>
+            <div className="space-y-2">
+              <Label>Transaction Type</Label>
+              <Select
+                value={transactionType}
+                onValueChange={(v: any) => setTransactionType(v)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="deposit">🏦 Cash to Bank Deposit</SelectItem>
+                  <SelectItem value="withdraw">🏧 Bank to Cash Withdrawal</SelectItem>
+                  <SelectItem value="add_cash">💵 Add Manual Cash</SelectItem>
+                  <SelectItem value="add_bank">🏦 Add Manual Bank Bal</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {(transactionType === "deposit" || transactionType === "withdraw" || transactionType === "add_bank") && (
+              <div className="space-y-2 animate-in slide-in-from-top-2">
+                <Label>Select Bank Account</Label>
                 <Select
-                  value={transactionType}
-                  onValueChange={(v: any) => setTransactionType(v)}
+                  value={transactionData.bankId}
+                  onValueChange={(v: string) => setTransactionData(prev => ({ ...prev, bankId: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Chose Bank..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="add_cash">Add Cash</SelectItem>
-                    <SelectItem value="add_bank">Add Bank Balance</SelectItem>
+                    {bankAccounts.map(bank => (
+                      <SelectItem key={bank.id} value={bank.id}>
+                        {bank.account_name} ({formatCurrency(bank.current_balance)})
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -798,6 +874,6 @@ export default function BalanceManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   )
 }

@@ -77,7 +77,14 @@ interface NozzleReading {
   liters_sold: number
   sales_amount: number
   payment_method: "cash" | "bank"
+  bank_account_id?: string
   status?: "pending" | "saved" | "locked"
+}
+
+interface BankAccount {
+  id: string
+  account_name: string
+  current_balance: number
 }
 
 interface OilProduct {
@@ -117,6 +124,7 @@ export default function SalesPage() {
   const [nozzleReadings, setNozzleReadings] = useState<NozzleReading[]>([])
   const [productSales, setProductSales] = useState<Sale[]>([])
   const [oilProducts, setOilProducts] = useState<OilProduct[]>([])
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
 
   // Unlock Logic
   const [unlockedNozzles, setUnlockedNozzles] = useState<Set<string>>(new Set())
@@ -129,7 +137,8 @@ export default function SalesPage() {
   const [newProductSale, setNewProductSale] = useState({
     product_id: "",
     quantity: "",
-    payment_method: "cash"
+    payment_method: "cash",
+    bank_account_id: ""
   })
 
   // Alerts
@@ -198,7 +207,7 @@ export default function SalesPage() {
             closing_reading: "",
             liters_sold: 0,
             sales_amount: 0,
-            payment_method: "cash",
+            payment_method: "cash", // Hardcoded to cash
             status: "pending"
           }
         }))
@@ -214,9 +223,21 @@ export default function SalesPage() {
 
       if (oilData) {
         setOilProducts(oilData)
-        console.log("Fetched Oil Products:", oilData.length)
-      } else {
-        console.log("No active oil_lubricant products found.")
+      }
+
+      // 5. Fetch Bank Accounts
+      const { data: bankData } = await supabase
+        .from("accounts")
+        .select("id, account_name, current_balance")
+        .eq("account_type", "bank")
+        .eq("status", "active")
+        .order("account_name")
+
+      if (bankData) {
+        setBankAccounts(bankData)
+        if (bankData.length > 0) {
+          setNewProductSale(prev => ({ ...prev, bank_account_id: bankData[0].id }))
+        }
       }
 
     } catch (err: any) {
@@ -308,36 +329,45 @@ export default function SalesPage() {
 
         const closing = parseFloat(reading.closing_reading)
         const product = nozzle.products
-        const costPrice = nozzle.products.selling_price * 0.9 // Fallback or fetch weighted_avg
-
-        // Note: For real implementation, we should have weighted_avg in nozzle->product join too.
-        // Simplified for this redesign view.
+        const user = await supabase.auth.getUser()
+        const userId = user.data.user?.id
 
         if (reading.id) {
           // Update Reading
-          await supabase.from("nozzle_readings").update({
+          const { error: nrUpdateError } = await supabase.from("nozzle_readings").update({
             closing_reading: closing,
             quantity_sold: reading.liters_sold,
             sale_amount: reading.sales_amount,
-            payment_method: reading.payment_method, // Add payment method to update
+            payment_method: reading.payment_method,
+            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
           }).eq("id", reading.id)
+          if (nrUpdateError) throw nrUpdateError
 
-          // Sync Sales record (Trigger handles stock and movement delta automatically)
-          await supabase.from("sales").update({
-            quantity: reading.liters_sold,
+          // Sync Sales record
+          const fuelQty = reading.liters_sold
+          const fuelTotal = reading.sales_amount
+          const fuelCogsPerUnit = product.weighted_avg_cost || 0
+          const fuelTotalCogs = fuelQty * fuelCogsPerUnit
+          const fuelGrossProfit = fuelTotal - fuelTotalCogs
+
+          const { error: sUpdateError } = await supabase.from("sales").update({
+            quantity: fuelQty,
             selling_price: product.selling_price,
-            sale_amount: reading.sales_amount,
-            payment_method: reading.payment_method, // Add payment method to update
+            sale_amount: fuelTotal,
+            payment_method: reading.payment_method,
+            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
+            cogs_per_unit: fuelCogsPerUnit,
+            total_cogs: fuelTotalCogs,
+            gross_profit: fuelGrossProfit,
+            recorded_by: userId
           }).eq("nozzle_id", nozzle.id).eq("sale_date", selectedDate).eq("sale_type", "fuel")
+          if (sUpdateError) throw sUpdateError
 
         } else {
           // Insert Reading
           const qty = reading.liters_sold
           const total = reading.sales_amount
-          const nozzle = nozzles.find(n => n.id === reading.nozzle_id)
-          if (!nozzle) continue
-
-          await supabase.from("nozzle_readings").insert({
+          const { error: nrInsertError } = await supabase.from("nozzle_readings").insert({
             nozzle_id: reading.nozzle_id,
             reading_date: selectedDate,
             opening_reading: reading.opening_reading,
@@ -346,13 +376,19 @@ export default function SalesPage() {
             selling_price: nozzle.products.selling_price,
             sale_amount: total,
             payment_method: reading.payment_method,
+            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
             cogs_per_unit: nozzle.products.weighted_avg_cost || 0,
             total_cogs: qty * (nozzle.products.weighted_avg_cost || 0),
             gross_profit: total - (qty * (nozzle.products.weighted_avg_cost || 0)),
-            recorded_by: (await supabase.auth.getUser()).data.user?.id
+            recorded_by: userId
           })
+          if (nrInsertError) throw nrInsertError
 
-          await supabase.from("sales").insert({
+          const fuelInsertCogsPerUnit = product.weighted_avg_cost || 0
+          const fuelInsertTotalCogs = qty * fuelInsertCogsPerUnit
+          const fuelInsertGrossProfit = total - fuelInsertTotalCogs
+
+          const { error: sInsertError } = await supabase.from("sales").insert({
             sale_date: selectedDate,
             product_id: nozzle.product_id,
             quantity: reading.liters_sold,
@@ -360,28 +396,28 @@ export default function SalesPage() {
             sale_amount: reading.sales_amount,
             sale_type: "fuel",
             nozzle_id: nozzle.id,
-            payment_method: reading.payment_method
+            payment_method: reading.payment_method,
+            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
+            cogs_per_unit: fuelInsertCogsPerUnit,
+            total_cogs: fuelInsertTotalCogs,
+            gross_profit: fuelInsertGrossProfit,
+            recorded_by: userId
           })
+          if (sInsertError) throw sInsertError
 
           // Update Nozzle Current Reading
-          await supabase.from("nozzles").update({ current_reading: closing }).eq("id", nozzle.id)
+          const { error: nUpdateError } = await supabase.from("nozzles").update({ current_reading: closing }).eq("id", nozzle.id)
+          if (nUpdateError) throw nUpdateError
         }
       }
 
-      // Prevent immediate re-locking for nozzles we just edited/saved
-      const justSavedIds = readingsToSave.map(r => r.nozzle_id)
-      setUnlockedNozzles(prev => {
-        const next = new Set(prev)
-        justSavedIds.forEach(id => next.add(id))
-        return next
-      })
-
       toast({ title: "Success", description: "Sales recorded successfully." })
-      fetchData() // Refresh
-
+      fetchData()
     } catch (err: any) {
-      console.error(err)
-      setError(err.message || "Failed to save sales.")
+      console.error("Sale Recording Error:", err)
+      const errorMsg = err.message || (err.error && err.error.message) || "Failed to save sales."
+      setError(errorMsg)
+      toast({ title: "Error", description: errorMsg, variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -397,24 +433,32 @@ export default function SalesPage() {
       const qty = parseFloat(newProductSale.quantity)
       const total = qty * product.selling_price
 
-      await supabase.from("sales").insert({
+      const recordedBy = (await supabase.auth.getUser()).data.user?.id
+
+      const { error: sInsertError } = await supabase.from("sales").insert({
         sale_date: selectedDate,
         product_id: product.id,
         quantity: qty,
         selling_price: product.selling_price,
         sale_amount: total,
         sale_type: "product",
-        payment_method: newProductSale.payment_method,
+        payment_method: newProductSale.payment_method === "bank" ? "bank_transfer" : "cash",
+        bank_account_id: newProductSale.payment_method === "bank" ? newProductSale.bank_account_id : null,
         cogs_per_unit: product.weighted_avg_cost || product.purchase_price || 0,
         total_cogs: qty * (product.weighted_avg_cost || product.purchase_price || 0),
-        gross_profit: total - (qty * (product.weighted_avg_cost || product.purchase_price || 0))
+        gross_profit: total - (qty * (product.weighted_avg_cost || product.purchase_price || 0)),
+        recorded_by: recordedBy
       })
+      if (sInsertError) throw sInsertError
 
       toast({ title: "Success", description: "Product sale added." })
-      setNewProductSale({ product_id: "", quantity: "", payment_method: "cash" })
+      setNewProductSale(prev => ({ ...prev, product_id: "", quantity: "" }))
       fetchData()
-    } catch (err) {
-      setError("Failed to add product sale")
+    } catch (err: any) {
+      console.error(err)
+      const errorMsg = err.message || (err.error && err.error.message) || "Failed to add product sale"
+      setError(errorMsg)
+      toast({ title: "Error", description: errorMsg, variant: "destructive" })
     } finally {
       setSaving(false)
     }
@@ -520,7 +564,7 @@ export default function SalesPage() {
                 <TableBody>
                   {nozzles.map((nozzle) => {
                     const reading = nozzleReadings.find(r => r.nozzle_id === nozzle.id) || {
-                      nozzle_id: nozzle.id, opening_reading: 0, closing_reading: "", liters_sold: 0, sales_amount: 0, payment_method: "cash"
+                      nozzle_id: nozzle.id, opening_reading: 0, closing_reading: "", liters_sold: 0, sales_amount: 0, payment_method: "cash", bank_account_id: ""
                     }
                     const isLocked = reading.id && !unlockedNozzles.has(nozzle.id)
 
@@ -564,18 +608,11 @@ export default function SalesPage() {
                           {reading.sales_amount > 0 ? reading.sales_amount.toLocaleString() : "-"}
                         </TableCell>
                         <TableCell>
-                          <Select
-                            value={reading.payment_method}
-                            onValueChange={(v) => setNozzleReadings(prev => prev.map(pr => pr.nozzle_id === nozzle.id ? { ...pr, payment_method: v as any } : pr))}
-                            disabled={!!isLocked}
-                          >
-                            <SelectTrigger className="h-8 py-0">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="cash">Cash</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <div className="flex items-center justify-center min-w-[120px]">
+                            <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 uppercase text-[10px] font-bold">
+                              Cash Only
+                            </Badge>
+                          </div>
                         </TableCell>
                         <TableCell className="text-center">
                           {reading.id ? (
@@ -652,17 +689,37 @@ export default function SalesPage() {
                         </p>
                       )}
                   </div>
-                  <div className="space-y-2">
-                    <Label>Payment Method</Label>
-                    <Select value={newProductSale.payment_method} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, payment_method: v }))}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Payment" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="bank">Bank Transfer</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Payment Method</Label>
+                      <Select value={newProductSale.payment_method} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, payment_method: v }))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Payment" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="bank">Bank Transfer</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {newProductSale.payment_method === "bank" && (
+                      <div className="space-y-2 animate-in slide-in-from-top-2">
+                        <Label>Select Bank Account</Label>
+                        <Select value={newProductSale.bank_account_id || ""} onValueChange={(v) => setNewProductSale(prev => ({ ...prev, bank_account_id: v }))}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Choose Bank..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {bankAccounts.map(bank => (
+                              <SelectItem key={bank.id} value={bank.id}>
+                                {bank.account_name} (Rs. {bank.current_balance.toLocaleString()})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                   <Button
                     className="w-full"

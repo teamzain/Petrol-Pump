@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
@@ -26,6 +26,7 @@ export default function SignUpPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLocked, setIsLocked] = useState<boolean | null>(null)
   const router = useRouter()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,9 +54,30 @@ export default function SignUpPage() {
     return true
   }
 
+  useEffect(() => {
+    const checkLock = async () => {
+      const supabase = createClient()
+      const { count, error } = await supabase
+        .from("users")
+        .select("*", { count: 'exact', head: true })
+
+      if (!error && count && count > 0) {
+        setIsLocked(true)
+      } else {
+        setIsLocked(false)
+      }
+    }
+    checkLock()
+  }, [])
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
+
+    if (isLocked) {
+      setError("Registration is locked. Only one administrator is allowed.")
+      return
+    }
 
     if (!validateForm()) return
 
@@ -64,19 +86,14 @@ export default function SignUpPage() {
     try {
       const supabase = createClient()
 
-      // Check if any admin already exists
-      const { data: existingUsers, error: checkError } = await supabase
+      // Double check before submission
+      const { count } = await supabase
         .from("users")
-        .select("id")
-        .eq("role", "admin")
-        .limit(1)
+        .select("*", { count: 'exact', head: true })
 
-      if (checkError) {
-        // Table might not exist yet or RLS issue - proceed with signup
-      }
-
-      if (existingUsers && existingUsers.length > 0) {
-        setError("An admin account already exists. Please contact your administrator.")
+      if (count && count > 0) {
+        setIsLocked(true)
+        setError("A user account already exists. This system is restricted to a single user.")
         setIsLoading(false)
         return
       }
@@ -115,9 +132,38 @@ export default function SignUpPage() {
     }
   }
 
+  if (isLocked === true) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-white p-4 font-sans">
+        <div className="w-full max-w-md text-center space-y-8 animate-in fade-in zoom-in duration-700">
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-destructive/5 border border-destructive/10 mb-4 shadow-[0_0_50px_rgba(239,68,68,0.05)]">
+            <Lock className="w-10 h-10 text-destructive" />
+          </div>
+          <div className="space-y-3">
+            <h1 className="text-4xl font-black text-slate-900 tracking-tighter uppercase italic leading-tight">System <span className="text-destructive uppercase">Locked</span></h1>
+            <p className="text-slate-500 font-medium">This station management system is already configured with an administrator account.</p>
+          </div>
+          <Alert variant="destructive" className="bg-destructive/[0.02] border-destructive/10 shadow-sm">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="font-bold uppercase tracking-widest text-[10px] text-destructive">Access to registration has been permanently restricted for security.</AlertDescription>
+          </Alert>
+          <div className="pt-4">
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-8 h-14 w-full bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 font-black uppercase tracking-widest hover:bg-slate-100 shadow-sm transition-all active:scale-95"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Return to Login
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4 font-sans">
+      <div className="w-full max-w-md py-8">
         {/* Logo and Title */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
@@ -127,7 +173,7 @@ export default function SignUpPage() {
           <p className="text-muted-foreground mt-2">Set up your petrol pump management system</p>
         </div>
 
-        <Card className="shadow-lg border-border/50">
+        <Card className="shadow-2xl shadow-slate-200/50 border-slate-200 bg-white/80 backdrop-blur-xl">
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-xl text-center">Admin Registration</CardTitle>
             <CardDescription className="text-center">
@@ -269,17 +315,17 @@ export default function SignUpPage() {
                 {isLoading ? (
                   <span className="flex items-center gap-2">
                     <span className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                    Creating Account...
+                    Registering...
                   </span>
                 ) : (
-                  "Create Admin Account"
+                  "Sign Up"
                 )}
               </Button>
             </form>
 
             <div className="mt-6 pt-6 border-t border-border">
-              <Link 
-                href="/login" 
+              <Link
+                href="/login"
                 className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
               >
                 <ArrowLeft className="h-4 w-4" />
