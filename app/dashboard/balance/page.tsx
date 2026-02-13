@@ -747,11 +747,11 @@ export default function BalanceManagementPage() {
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpeningDialogOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setOpeningDialogOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button className="w-full" onClick={handleSetOpeningBalance} disabled={saving}>
+            <Button onClick={handleSetOpeningBalance} disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader size="xs" /> : "Save Opening Balance"}
             </Button>
           </DialogFooter>
@@ -787,11 +787,11 @@ export default function BalanceManagementPage() {
               </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCloseDialogOpen(false)}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setCloseDialogOpen(false)} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button onClick={handleCloseDay} disabled={saving}>
+            <Button onClick={handleCloseDay} disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader size="xs" /> : "Close Day"}
             </Button>
           </DialogFooter>
@@ -878,9 +878,9 @@ export default function BalanceManagementPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setTransactionDialogOpen(false)}>Cancel</Button>
-            <Button className="w-full" onClick={handleTransaction} disabled={saving}>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setTransactionDialogOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+            <Button onClick={handleTransaction} disabled={saving} className="w-full sm:w-auto">
               {saving ? <Loader size="xs" /> : "Confirm"}
             </Button>
           </DialogFooter>
