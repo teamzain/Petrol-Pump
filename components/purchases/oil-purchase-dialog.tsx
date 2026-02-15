@@ -255,25 +255,6 @@ export function OilPurchaseDialog({ open, onOpenChange, onSuccess }: OilPurchase
         if (itemError) throw new Error(`Item "${item.product.product_name}" failed: ${itemError.message}`)
       }
 
-      // 3. Update Balance & Record Transaction (Financials)
-      if (paidAmount > 0 && todayBalance) {
-        const newBal = availableBalance - paidAmount
-        const updateData = formData.payment_method === "cash" ? { cash_closing: newBal } : { bank_closing: newBal }
-        const { error: balError } = await supabase.from("daily_balances").update(updateData).eq("id", todayBalance.id)
-        if (balError) throw balError
-
-        const { error: transError } = await supabase.from("transactions").insert({
-          transaction_date: new Date().toISOString(),
-          transaction_type: "expense",
-          category: "Oil/Lubricant Purchase",
-          description: `Inv# ${formData.invoice_number}`,
-          amount: paidAmount,
-          payment_method: formData.payment_method,
-          reference_type: "purchase_order",
-          reference_id: order.id
-        })
-        if (transError) throw transError
-      }
 
       // 4. Update Supplier Totals
       if (formData.supplier_id) {

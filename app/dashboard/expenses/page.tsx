@@ -31,6 +31,8 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Separator } from "@/components/ui/separator"
 import { createClient } from "@/lib/supabase/client"
 import {
     Dialog,
@@ -301,10 +303,7 @@ export default function ExpensesPage() {
         }
     }
 
-    const handleDeleteCategory = async (e: React.MouseEvent, id: string, name: string) => {
-        e.stopPropagation()
-        e.preventDefault()
-
+    const handleDeleteCategory = async (id: string, name: string) => {
         if (!confirm(`Are you sure you want to delete the category "${name}"?`)) return
 
         setAddingCategory(true)
@@ -398,21 +397,7 @@ export default function ExpensesPage() {
                                                 <SelectContent>
                                                     {categories.map(c => (
                                                         <SelectItem key={c.id} value={c.id}>
-                                                            <div className="flex items-center justify-between w-full min-w-[200px]">
-                                                                <span>{c.category_name}</span>
-                                                                <div
-                                                                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
-                                                                    onPointerDown={(e) => {
-                                                                        e.stopPropagation()
-                                                                    }}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation()
-                                                                        handleDeleteCategory(e, c.id, c.category_name)
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="h-3 w-3" />
-                                                                </div>
-                                                            </div>
+                                                            {c.category_name}
                                                         </SelectItem>
                                                     ))}
                                                 </SelectContent>
@@ -425,9 +410,9 @@ export default function ExpensesPage() {
                                                 </DialogTrigger>
                                                 <DialogContent>
                                                     <DialogHeader>
-                                                        <DialogTitle>Add New Category</DialogTitle>
+                                                        <DialogTitle>Manage Categories</DialogTitle>
                                                         <DialogDescription>
-                                                            Create a new category for your expenses.
+                                                            Add new categories or delete existing ones.
                                                         </DialogDescription>
                                                     </DialogHeader>
                                                     <div className="grid gap-4 py-4">
@@ -455,11 +440,37 @@ export default function ExpensesPage() {
                                                             </Select>
                                                         </div>
                                                     </div>
-                                                    <DialogFooter>
-                                                        <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>Cancel</Button>
-                                                        <Button onClick={handleAddCategory} disabled={addingCategory}>
-                                                            {addingCategory ? <BrandLoader size="xs" /> : "Save Category"}
-                                                        </Button>
+                                                    <DialogFooter className="flex flex-col gap-4">
+                                                        <div className="w-full">
+                                                            <Separator className="my-2" />
+                                                            <h4 className="text-sm font-medium mb-3">Existing Categories</h4>
+                                                            <ScrollArea className="h-[200px] pr-4">
+                                                                <div className="space-y-2">
+                                                                    {categories.map((c) => (
+                                                                        <div key={c.id} className="flex items-center justify-between p-2 rounded-md hover:bg-muted/50 group border border-transparent hover:border-border transition-all">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-sm font-medium">{c.category_name}</span>
+                                                                                <span className="text-[10px] text-muted-foreground uppercase">{c.category_type}</span>
+                                                                            </div>
+                                                                            <Button
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                                                onClick={() => handleDeleteCategory(c.id, c.category_name)}
+                                                                            >
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </ScrollArea>
+                                                        </div>
+                                                        <div className="flex justify-end gap-2 w-full pt-4">
+                                                            <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>Close</Button>
+                                                            <Button onClick={handleAddCategory} disabled={addingCategory}>
+                                                                {addingCategory ? <BrandLoader size="xs" /> : "Add Category"}
+                                                            </Button>
+                                                        </div>
                                                     </DialogFooter>
                                                 </DialogContent>
                                             </Dialog>

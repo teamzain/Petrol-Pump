@@ -294,12 +294,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
           total_amount: item.total,
           payment_method: formData.payment_method,
           bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
-          // invoice_number is optional now, skipping or using order's
-          status: "completed",
-          old_weighted_avg: item.product.purchase_price,
-          new_weighted_avg: item.unitPrice
         })
-        if (itemError) throw itemError
 
         // Update Product Stock & Price
         const newStock = item.product.current_stock + item.quantity
@@ -328,28 +323,6 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
         }
       }
 
-      // 3. Update Balance (Deduct PAID amount only)
-      if (paidAmount > 0 && todayBalance) {
-        const newBal = availableBalance - paidAmount
-        const updateData = formData.payment_method === "cash"
-          ? { cash_closing: newBal }
-          : { bank_closing: newBal }
-
-        await supabase.from("daily_balances").update(updateData).eq("id", todayBalance.id)
-
-        // Log Transaction
-        await supabase.from("transactions").insert({
-          transaction_date: new Date().toISOString(),
-          transaction_type: "expense",
-          category: "Fuel Purchase",
-          description: `Inv# ${formData.invoice_number} (Partial/Full Payment)`,
-          amount: paidAmount,
-          payment_method: formData.payment_method,
-          bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
-          reference_type: "purchase_order",
-          reference_id: order.id
-        })
-      }
 
       // 4. Update Supplier Totals
       if (formData.supplier_id) {

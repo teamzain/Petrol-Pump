@@ -61,7 +61,15 @@ const navItems: NavItem[] = [
   },
   { title: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart },
   { title: "Sales", href: "/dashboard/sales", icon: DollarSign },
-  { title: "Balance", href: "/dashboard/balance", icon: Wallet },
+  {
+    title: "Balance",
+    href: "/dashboard/balance",
+    icon: Wallet,
+    children: [
+      { title: "Balance Overview", href: "/dashboard/balance" },
+      { title: "Balance Movements", href: "/dashboard/balance/movements" },
+    ],
+  },
   { title: "Nozzles", href: "/dashboard/nozzles", icon: Gauge },
   { title: "Expenses", href: "/dashboard/expenses", icon: Calculator },
   { title: "Reports", href: "/dashboard/reports", icon: BarChart3 },
