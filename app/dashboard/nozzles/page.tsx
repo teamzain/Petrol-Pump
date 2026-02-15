@@ -46,7 +46,7 @@ import { DeleteConfirmDialog } from "@/components/ui/delete-confirm-dialog"
 interface Nozzle {
   id: string
   nozzle_number: string
-  pump_number: string | null
+  dispenser_number: string | null
   nozzle_side: string | null
   product_id: string
   initial_reading: number
@@ -77,7 +77,7 @@ export default function NozzlesPage() {
 
   const [formData, setFormData] = useState({
     nozzle_number: "",
-    pump_number: "",
+    dispenser_number: "",
     nozzle_side: "",
     product_id: "",
     initial_reading: "0",
@@ -90,7 +90,7 @@ export default function NozzlesPage() {
     const { data, error } = await supabase
       .from("nozzles")
       .select("*, products(product_name, product_type)")
-      .order("pump_number", { ascending: true })
+      .order("dispenser_number", { ascending: true })
       .order("nozzle_side", { ascending: true })
 
     if (!error && data) {
@@ -120,7 +120,7 @@ export default function NozzlesPage() {
       setSelectedNozzle(nozzle)
       setFormData({
         nozzle_number: nozzle.nozzle_number,
-        pump_number: nozzle.pump_number || "",
+        dispenser_number: nozzle.dispenser_number || "",
         nozzle_side: nozzle.nozzle_side || "",
         product_id: nozzle.product_id,
         initial_reading: nozzle.initial_reading.toString(),
@@ -129,7 +129,7 @@ export default function NozzlesPage() {
       setSelectedNozzle(null)
       setFormData({
         nozzle_number: "",
-        pump_number: "",
+        dispenser_number: "",
         nozzle_side: "",
         product_id: "",
         initial_reading: "0",
@@ -147,8 +147,8 @@ export default function NozzlesPage() {
       if (!formData.nozzle_number.trim()) {
         throw new Error("Please enter a nozzle name/number")
       }
-      if (!String(formData.pump_number).trim()) {
-        throw new Error("Please enter a pump number")
+      if (!String(formData.dispenser_number).trim()) {
+        throw new Error("Please enter a Dispenser number")
       }
       if (!formData.nozzle_side) {
         throw new Error("Please select a nozzle side (Left or Right)")
@@ -165,7 +165,7 @@ export default function NozzlesPage() {
           .from("nozzles")
           .update({
             nozzle_number: formData.nozzle_number.trim(),
-            pump_number: String(formData.pump_number).trim() || null,
+            dispenser_number: String(formData.dispenser_number).trim() || null,
             nozzle_side: formData.nozzle_side || null,
             product_id: formData.product_id,
             initial_reading: initialReading,
@@ -180,7 +180,7 @@ export default function NozzlesPage() {
           .from("nozzles")
           .insert({
             nozzle_number: formData.nozzle_number.trim(),
-            pump_number: String(formData.pump_number).trim() || null,
+            dispenser_number: String(formData.dispenser_number).trim() || null,
             nozzle_side: formData.nozzle_side || null,
             product_id: formData.product_id,
             initial_reading: initialReading,
@@ -233,13 +233,13 @@ export default function NozzlesPage() {
     return "bg-primary/10 text-primary border-primary/20"
   }
 
-  // Group nozzles by pump
+  // Group nozzles by dispenser
   const groupedNozzles = nozzles.reduce((acc, nozzle) => {
-    const pumpKey = nozzle.pump_number || "Unassigned"
-    if (!acc[pumpKey]) {
-      acc[pumpKey] = []
+    const dispenserKey = nozzle.dispenser_number || "Unassigned"
+    if (!acc[dispenserKey]) {
+      acc[dispenserKey] = []
     }
-    acc[pumpKey].push(nozzle)
+    acc[dispenserKey].push(nozzle)
     return acc
   }, {} as Record<string, Nozzle[]>)
 
@@ -248,7 +248,7 @@ export default function NozzlesPage() {
       <div className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold tracking-tight">Nozzle Configuration</h1>
         <p className="text-muted-foreground">
-          Manage fuel dispensing nozzles, assign to pumps, and track meter readings
+          Manage fuel dispensing nozzles, assign to dispensers, and track meter readings
         </p>
       </div>
 
@@ -324,7 +324,7 @@ export default function NozzlesPage() {
             <div>
               <CardTitle>Nozzle List</CardTitle>
               <CardDescription>
-                Configure nozzles with pump assignments and initial meter readings
+                Configure nozzles with dispenser assignments and initial meter readings
               </CardDescription>
             </div>
             <Button onClick={() => handleOpenDialog()}>
@@ -357,7 +357,7 @@ export default function NozzlesPage() {
                 <TableHeader>
                   <TableRow className="bg-muted/50">
                     <TableHead className="whitespace-nowrap">Nozzle Name</TableHead>
-                    <TableHead className="whitespace-nowrap">Pump #</TableHead>
+                    <TableHead className="whitespace-nowrap">Dispenser #</TableHead>
                     <TableHead className="whitespace-nowrap">Side</TableHead>
                     <TableHead className="whitespace-nowrap">Fuel Type</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Initial Reading</TableHead>
@@ -370,7 +370,7 @@ export default function NozzlesPage() {
                   {nozzles.map((nozzle) => (
                     <TableRow key={nozzle.id}>
                       <TableCell className="font-medium whitespace-nowrap">{nozzle.nozzle_number}</TableCell>
-                      <TableCell className="whitespace-nowrap">{nozzle.pump_number || "-"}</TableCell>
+                      <TableCell className="whitespace-nowrap">{nozzle.dispenser_number || "-"}</TableCell>
                       <TableCell className="capitalize whitespace-nowrap">{nozzle.nozzle_side || "-"}</TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge
@@ -431,22 +431,22 @@ export default function NozzlesPage() {
       {Object.keys(groupedNozzles).length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Pump Layout</CardTitle>
-            <CardDescription>Visual representation of pumps and their nozzles</CardDescription>
+            <CardTitle>Dispenser Layout</CardTitle>
+            <CardDescription>Visual representation of dispensers and their nozzles</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(groupedNozzles).map(([pump, pumpNozzles]) => (
-                <Card key={pump} className="border-2">
+              {Object.entries(groupedNozzles).map(([dispenser, dispenserNozzles]) => (
+                <Card key={dispenser} className="border-2">
                   <CardHeader className="p-4">
                     <CardTitle className="text-base flex items-center gap-2">
                       <Fuel className="h-4 w-4" />
-                      {pump === "Unassigned" ? "Unassigned Nozzles" : `Pump ${pump}`}
+                      {dispenser === "Unassigned" ? "Unassigned Nozzles" : `Dispenser ${dispenser}`}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 pt-0">
                     <div className="grid grid-cols-2 gap-2">
-                      {pumpNozzles.map((nozzle) => (
+                      {dispenserNozzles.map((nozzle) => (
                         <div
                           key={nozzle.id}
                           className="rounded-lg border p-2 text-center"
@@ -500,11 +500,11 @@ export default function NozzlesPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="pump_number">Pump Number</Label>
+                <Label htmlFor="dispenser_number">Dispenser Number</Label>
                 <Input
-                  id="pump_number"
-                  value={formData.pump_number}
-                  onChange={(e) => setFormData({ ...formData, pump_number: e.target.value })}
+                  id="dispenser_number"
+                  value={formData.dispenser_number}
+                  onChange={(e) => setFormData({ ...formData, dispenser_number: e.target.value })}
                   placeholder="e.g., 1, 2, 3"
                 />
               </div>

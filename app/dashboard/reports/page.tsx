@@ -12,11 +12,11 @@ import {
     Download,
     Filter,
     Calendar as CalendarIcon,
+    Wallet,
+    X,
     ChevronDown,
     RefreshCcw,
-    Printer,
-    Wallet,
-    X
+    Printer
 } from "lucide-react"
 import { BrandLoader } from "@/components/ui/brand-loader"
 import { format, startOfMonth, endOfMonth, startOfToday, subDays, startOfWeek, endOfWeek, startOfYear, endOfYear } from "date-fns"
@@ -64,6 +64,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { DetailViewDialog } from "@/components/reports/detail-view-dialog"
+import { exportReport, ExportType } from "@/lib/report-export"
 
 export type ReportFilter = {
     dateRange: { from: Date; to: Date }
@@ -124,83 +125,9 @@ export default function ReportsPage() {
         setIsDetailOpen(true)
     }
 
-    const handleExport = () => {
+    const handleExport = (type: ExportType) => {
         if (!reportData) return
-
-        let csvContent = "data:text/csv;charset=utf-8,"
-        let fileName = `report-${activeTab}-${getTodayPKT()}.csv`
-
-        // Header and Data generation based on current report data structure
-        if (activeTab === "daily-summary" && reportData.stockMovements) {
-            const headers = ["Product", "Type", "Quantity", "Balance After", "Date"]
-            csvContent += headers.join(",") + "\n"
-            reportData.stockMovements.forEach((m: any) => {
-                const row = [
-                    m.products?.product_name || "N/A",
-                    m.movement_type,
-                    m.quantity,
-                    m.balance_after,
-                    format(new Date(m.movement_date || m.created_at || new Date()), "yyyy-MM-dd")
-                ]
-                csvContent += row.join(",") + "\n"
-            })
-        } else if (activeTab === "sales-analysis" && reportData.breakdownData) {
-            const headers = ["Product", "Volume", "Revenue", "Profit"]
-            csvContent += headers.join(",") + "\n"
-            reportData.breakdownData.forEach((d: any) => {
-                const row = [d.name, d.volume, d.revenue, d.profit]
-                csvContent += row.join(",") + "\n"
-            })
-        } else if (activeTab === "purchase-history" && Array.isArray(reportData)) {
-            const headers = ["Date", "Invoice", "Supplier", "Amount", "Status"]
-            csvContent += headers.join(",") + "\n"
-            reportData.forEach((o: any) => {
-                const row = [
-                    o.purchase_date,
-                    o.invoice_number,
-                    o.suppliers?.supplier_name || "N/A",
-                    o.total_amount,
-                    o.status
-                ]
-                csvContent += row.join(",") + "\n"
-            })
-        } else if (activeTab === "expense-breakdown" && reportData.expenses) {
-            const headers = ["Date", "Category", "Amount", "Method", "Notes"]
-            csvContent += headers.join(",") + "\n"
-            reportData.expenses.forEach((e: any) => {
-                const row = [
-                    e.expense_date,
-                    e.expense_categories?.category_name || "N/A",
-                    e.amount,
-                    e.payment_method,
-                    e.description || ""
-                ]
-                csvContent += row.join(",") + "\n"
-            })
-        } else if (activeTab === "suppliers" && Array.isArray(reportData)) {
-            const headers = ["Supplier", "Type", "Period Purchases", "Lifetime Total", "Outstanding Dues"]
-            csvContent += headers.join(",") + "\n"
-            reportData.forEach((s: any) => {
-                const row = [
-                    s.supplier_name,
-                    s.supplier_type,
-                    s.periodPurchases,
-                    s.total_purchases,
-                    s.outstandingDues
-                ]
-                csvContent += row.join(",") + "\n"
-            })
-        } else {
-            // Basic generic export
-            csvContent += "Data Error: Export not fully configured for this tab yet."
-        }
-
-        const encodedUri = encodeURI(csvContent)
-        const link = document.body.appendChild(document.createElement("a"))
-        link.setAttribute("href", encodedUri)
-        link.setAttribute("download", fileName)
-        link.click()
-        document.body.removeChild(link)
+        exportReport({ activeTab, reportData, filters }, type)
     }
 
     // Handle Preset Date Ranges
@@ -256,16 +183,28 @@ export default function ReportsPage() {
                         <p className="text-sm text-muted-foreground">Comprehensive business intelligence for your filling station.</p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-9 px-3 gap-2"
-                            onClick={handleExport}
-                            disabled={!reportData}
-                        >
-                            <Download className="h-4 w-4" />
-                            <span className="hidden sm:inline">Export CSV</span>
-                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-9 px-3 gap-2"
+                                    disabled={!reportData}
+                                >
+                                    <Download className="h-4 w-4" />
+                                    <span className="hidden sm:inline">Export</span>
+                                    <ChevronDown className="h-3 w-3 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleExport("csv")}>
+                                    <FileText className="mr-2 h-4 w-4" /> Export CSV
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExport("pdf")}>
+                                    <Download className="mr-2 h-4 w-4" /> Export PDF
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button variant="outline" size="sm" onClick={refreshData} disabled={isRefreshing}>
                             {isRefreshing ? (
                                 <BrandLoader size="xs" className="mr-2" />

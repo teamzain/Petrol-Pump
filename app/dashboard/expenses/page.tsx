@@ -19,6 +19,7 @@ import {
     Plus,
     Search,
     Filter,
+    Trash2,
 } from "lucide-react"
 import { BrandLoader } from "@/components/ui/brand-loader"
 
@@ -76,7 +77,7 @@ interface Expense {
     expense_date: string
     amount: number
     category_id: string
-    category: { category_name: string }
+    category: { category_name: string, category_type: string }
     payment_method: string
     description: string
     paid_to: string | null
@@ -106,6 +107,9 @@ export default function ExpensesPage() {
         invoiceNumber: "",
         notes: ""
     })
+    const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false)
+    const [newCategory, setNewCategory] = useState({ name: "", type: "operating" })
+    const [addingCategory, setAddingCategory] = useState(false)
 
     // Search & Filter
     const [searchQuery, setSearchQuery] = useState("")
@@ -135,12 +139,14 @@ export default function ExpensesPage() {
                 .eq("balance_date", today)
                 .maybeSingle()
 
+            if (balanceData) setTodayBalance(balanceData)
+
             // 3. Fetch Expenses
             const { data: expensesData } = await supabase
                 .from("expenses")
                 .select(`
                     *,
-                    category:expense_categories(category_name)
+                    category:expense_categories(category_name, category_type)
                 `)
                 .order("expense_date", { ascending: false })
                 .order("created_at", { ascending: false })
@@ -264,6 +270,74 @@ export default function ExpensesPage() {
         }
     }
 
+    const handleAddCategory = async () => {
+        if (!newCategory.name.trim()) return
+
+        setAddingCategory(true)
+        try {
+            const { data, error: catError } = await supabase
+                .from("expense_categories")
+                .insert({
+                    category_name: newCategory.name.trim(),
+                    category_type: newCategory.type,
+                    status: "active"
+                })
+                .select()
+                .single()
+
+            if (catError) throw catError
+
+            // Refresh categories and select the new one
+            await fetchData()
+            setFormData(prev => ({ ...prev, categoryId: data.id }))
+            setIsCategoryDialogOpen(false)
+            setNewCategory({ name: "", type: "operating" })
+            setSuccess("Category added successfully!")
+            setTimeout(() => setSuccess(null), 3000)
+        } catch (err: any) {
+            setError(err.message || "Failed to add category")
+        } finally {
+            setAddingCategory(false)
+        }
+    }
+
+    const handleDeleteCategory = async (e: React.MouseEvent, id: string, name: string) => {
+        e.stopPropagation()
+        e.preventDefault()
+
+        if (!confirm(`Are you sure you want to delete the category "${name}"?`)) return
+
+        setAddingCategory(true)
+        try {
+            const { error: catError } = await supabase
+                .from("expense_categories")
+                .delete()
+                .eq("id", id)
+
+            if (catError) {
+                if (catError.code === "23503") {
+                    throw new Error("Cannot delete this category because it is already used in existing expense records.")
+                }
+                throw catError
+            }
+
+            // Refresh categories
+            await fetchData()
+
+            // If the deleted category was selected, clear it
+            if (formData.categoryId === id) {
+                setFormData(prev => ({ ...prev, categoryId: "" }))
+            }
+
+            setSuccess("Category deleted successfully!")
+            setTimeout(() => setSuccess(null), 3000)
+        } catch (err: any) {
+            setError(err.message || "Failed to delete category")
+        } finally {
+            setAddingCategory(false)
+        }
+    }
+
     const formatCurrency = (val: number) => `Rs. ${val.toLocaleString("en-PK")}`
 
     if (loading) {
@@ -314,16 +388,82 @@ export default function ExpensesPage() {
                                     </div>
                                     <div className="space-y-2">
                                         <Label htmlFor="category">Category</Label>
-                                        <Select value={formData.categoryId} onValueChange={(v) => setFormData({ ...formData, categoryId: v })}>
-                                            <SelectTrigger id="category">
-                                                <SelectValue placeholder="Select Category" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {categories.map(c => (
-                                                    <SelectItem key={c.id} value={c.id}>{c.category_name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                        <div className="flex gap-2">
+                                            <Select value={formData.categoryId} onValueChange={(v) => setFormData({ ...formData, categoryId: v })}>
+                                                <SelectTrigger id="category" className="flex-1 min-w-0 overflow-hidden">
+                                                    <div className="truncate">
+                                                        <SelectValue placeholder="Select Category" />
+                                                    </div>
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    {categories.map(c => (
+                                                        <SelectItem key={c.id} value={c.id}>
+                                                            <div className="flex items-center justify-between w-full min-w-[200px]">
+                                                                <span>{c.category_name}</span>
+                                                                <div
+                                                                    className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 cursor-pointer transition-colors"
+                                                                    onPointerDown={(e) => {
+                                                                        e.stopPropagation()
+                                                                    }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation()
+                                                                        handleDeleteCategory(e, c.id, c.category_name)
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="h-3 w-3" />
+                                                                </div>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <Dialog open={isCategoryDialogOpen} onOpenChange={setIsCategoryDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" size="icon" type="button" className="shrink-0 bg-primary/5 border-primary/20 hover:bg-primary/10">
+                                                        <Plus className="h-4 w-4 text-primary" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Add New Category</DialogTitle>
+                                                        <DialogDescription>
+                                                            Create a new category for your expenses.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <div className="grid gap-4 py-4">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="newCategoryName">Category Name</Label>
+                                                            <Input
+                                                                id="newCategoryName"
+                                                                placeholder="e.g. Office Supplies"
+                                                                value={newCategory.name}
+                                                                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="newCategoryType">Category Type</Label>
+                                                            <Select value={newCategory.type} onValueChange={(v) => setNewCategory({ ...newCategory, type: v })}>
+                                                                <SelectTrigger id="newCategoryType">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="operating">Operating Expense</SelectItem>
+                                                                    <SelectItem value="fixed">Fixed Cost</SelectItem>
+                                                                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                                                                    <SelectItem value="other">Other</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                    <DialogFooter>
+                                                        <Button variant="outline" onClick={() => setIsCategoryDialogOpen(false)}>Cancel</Button>
+                                                        <Button onClick={handleAddCategory} disabled={addingCategory}>
+                                                            {addingCategory ? <BrandLoader size="xs" /> : "Save Category"}
+                                                        </Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -347,12 +487,11 @@ export default function ExpensesPage() {
                                             <SelectContent>
                                                 <SelectItem value="cash">🏛️ Cash Account</SelectItem>
                                                 <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
-                                                <SelectItem value="cheque">🏷️ Cheque</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
 
-                                    {(formData.paymentMethod === "bank_transfer" || formData.paymentMethod === "cheque") && (
+                                    {formData.paymentMethod === "bank_transfer" && (
                                         <div className="space-y-2 animate-in slide-in-from-top-2">
                                             <Label htmlFor="bankAccount">Select Bank Account</Label>
                                             <Select value={formData.bankAccountId} onValueChange={(v) => setFormData({ ...formData, bankAccountId: v })}>
@@ -520,6 +659,7 @@ export default function ExpensesPage() {
                                     <TableHead className="w-[120px]">Date</TableHead>
                                     <TableHead>Description</TableHead>
                                     <TableHead>Category</TableHead>
+                                    <TableHead>Type</TableHead>
                                     <TableHead>Reference</TableHead>
                                     <TableHead className="text-center">Method</TableHead>
                                     <TableHead className="text-right">Amount</TableHead>
@@ -528,7 +668,7 @@ export default function ExpensesPage() {
                             <TableBody>
                                 {filteredExpenses.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                                             No expenses found.
                                         </TableCell>
                                     </TableRow>
@@ -552,6 +692,11 @@ export default function ExpensesPage() {
                                                 <Badge variant="secondary" className="font-normal border-primary/10 whitespace-nowrap">
                                                     {expense.category?.category_name}
                                                 </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                                    {expense.category?.category_type?.replace("_", " ")}
+                                                </span>
                                             </TableCell>
                                             <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                                                 {expense.paid_to && <div className="font-medium text-slate-700">{expense.paid_to}</div>}
