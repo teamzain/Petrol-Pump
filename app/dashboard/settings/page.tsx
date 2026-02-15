@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useTheme } from "next-themes"
 import { createClient } from "@/lib/supabase/client"
+import { getTodayPKT } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -113,6 +114,7 @@ export default function SettingsPage() {
                     .from('accounts')
                     .insert({ ...payload, current_balance: payload.opening_balance })
                 if (error) throw error
+
                 setMessage({ type: 'success', text: 'Bank account added!' })
             }
 

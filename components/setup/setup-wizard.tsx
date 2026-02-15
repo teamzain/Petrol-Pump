@@ -15,7 +15,7 @@ import {
   ArrowLeft, ArrowRight, AlertCircle
 } from "lucide-react"
 import { BrandLoader } from "@/components/ui/brand-loader"
-import { cn } from "@/lib/utils"
+import { cn, getTodayPKT } from "@/lib/utils"
 
 type Step = {
   id: number
@@ -127,10 +127,11 @@ export function SetupWizard() {
       if (pumpError) throw pumpError
 
       // Save opening balance
+      const setupDate = getTodayPKT()
       const { error: balanceError } = await supabase.from("opening_balance").insert({
         opening_cash: parseFloat(openingBalance.openingCash) || 0,
         opening_bank: parseFloat(openingBalance.openingBank) || 0,
-        balance_date: new Date().toISOString().split("T")[0],
+        balance_date: setupDate,
       })
 
       if (balanceError) throw balanceError
@@ -144,11 +145,13 @@ export function SetupWizard() {
           account_type: "cash",
           account_name: "Cash Account",
           current_balance: cashAmount,
+          opening_balance: cashAmount,
         },
         {
           account_type: "bank",
           account_name: "Bank Account",
           current_balance: bankAmount,
+          opening_balance: bankAmount,
         },
       ])
 

@@ -3,7 +3,7 @@
 -- It uses CASCADE to handle foreign key constraints automatically.
 
 -- We include all known tables to ensure a complete wipe.
-TRUNCATE TABLE
+TRUNCATE TABLE 
   public.daily_balances,
   public.transactions,
   public.sales,
