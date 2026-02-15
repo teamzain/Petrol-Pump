@@ -54,8 +54,9 @@ export function ExpenseBreakdownReport({ filters, onDetailClick, onDataLoaded }:
                 const categoryData = Object.entries(categoryMap).map(([name, value]) => ({ name, value }))
                     .sort((a: any, b: any) => b.value - a.value)
 
+                const totalExpenses = categoryData.reduce((sum: number, c: any) => sum + c.value, 0)
                 setData({ expenses: expenses || [], categoryData })
-                onDataLoaded?.({ expenses: expenses || [], categoryData })
+                onDataLoaded?.({ expenses: expenses || [], categoryData, totalExpenses })
             } catch (error) {
                 console.error("Error fetching expense breakdown:", error)
             } finally {

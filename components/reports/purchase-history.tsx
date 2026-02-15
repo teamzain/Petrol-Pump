@@ -62,7 +62,14 @@ export function PurchaseHistoryReport({ filters, onDetailClick, onDataLoaded }: 
 
                 if (data) {
                     setOrders(data)
-                    onDataLoaded?.(data)
+                    const totalValue = data.reduce((sum: number, o: any) => sum + Number(o.total_amount || 0), 0)
+                    const totalPaid = data.reduce((sum: number, o: any) => sum + Number(o.paid_amount || 0), 0)
+                    onDataLoaded?.({
+                        orders: data,
+                        totalValue,
+                        totalPaid,
+                        outstandingDues: totalValue - totalPaid
+                    })
                 }
             } catch (error) {
                 console.error("Error fetching purchases:", error)

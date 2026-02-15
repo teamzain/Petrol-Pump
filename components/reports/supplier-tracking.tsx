@@ -78,7 +78,12 @@ export function SupplierPerformanceReport({ filters, onDetailClick, onDataLoaded
                         }
                     })
                     setSuppliers(processed)
-                    onDataLoaded?.(processed)
+                    onDataLoaded?.({
+                        suppliers: processed,
+                        totalSuppliers: processed.length,
+                        totalOutstanding: processed.reduce((sum: number, s: any) => sum + s.outstandingDues, 0),
+                        totalOrders: processed.reduce((sum: number, s: any) => sum + s.orderCount, 0)
+                    })
                 }
 
             } catch (error) {

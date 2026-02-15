@@ -137,6 +137,8 @@ export function SalesAnalysisReport({ filters, onDetailClick, onDataLoaded }: {
                 onDataLoaded?.({
                     breakdownData,
                     trendData,
+                    totalRevenue: breakdownData.reduce((sum: number, item: any) => sum + item.revenue, 0),
+                    totalProfit: breakdownData.reduce((sum: number, item: any) => sum + item.profit, 0),
                     rawFuelSales: fuelSales || [],
                     rawProductSales: productSales || []
                 })

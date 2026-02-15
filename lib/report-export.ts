@@ -126,7 +126,34 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
     let tableData: any[] = []
     let tableHeaders: string[] = []
 
+    // Helper for Summary Cards
+    const addSummarySection = (title: string, data: [string, string][]) => {
+        doc.setFontSize(12)
+        doc.setFont("helvetica", "bold")
+        doc.text(title, 14, 52)
+        autoTable(doc, {
+            startY: 55,
+            body: data,
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 2 },
+            columnStyles: { 0: { fontStyle: 'bold', cellWidth: 80 } },
+            margin: { left: 14, right: 14 }
+        })
+        return (doc as any).lastAutoTable.finalY + 10
+    }
+
+    let nextY = 55
+
     if (activeTab === "daily-summary" && reportData.stockMovements) {
+        nextY = addSummarySection("Key Performance Indicators", [
+            ["Total Revenue", `Rs. ${reportData.totalSales?.toLocaleString() || "0"}`],
+            ["Total Purchases", `Rs. ${reportData.totalPurchases?.toLocaleString() || "0"}`],
+            ["Total Expenses", `Rs. ${reportData.totalExpenses?.toLocaleString() || "0"}`],
+            ["Net Profit", `Rs. ${reportData.netProfit?.toLocaleString() || "0"}`],
+            ["Opening Balance", `Rs. ${reportData.openingBalance?.toLocaleString() || "0"}`],
+            ["Closing Balance", `Rs. ${reportData.closingBalance?.toLocaleString() || "0"}`],
+        ])
+
         tableHeaders = ["Product", "Type", "Quantity", "Balance After", "Date"]
         tableData = reportData.stockMovements.map((m: any) => [
             m.products?.product_name || "N/A",
@@ -136,6 +163,12 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
             format(new Date(m.movement_date || m.created_at || new Date()), "MMM dd, yyyy")
         ])
     } else if (activeTab === "sales-analysis" && reportData.breakdownData) {
+        nextY = addSummarySection("Sales Summary", [
+            ["Total Sales Revenue", `Rs. ${reportData.totalRevenue?.toLocaleString() || "0"}`],
+            ["Total Estimated Profit", `Rs. ${reportData.totalProfit?.toLocaleString() || "0"}`],
+            ["Transactions", `${(reportData.rawFuelSales?.length || 0) + (reportData.rawProductSales?.length || 0)}`],
+        ])
+
         tableHeaders = ["Product", "Volume", "Revenue (Rs.)", "Profit (Rs.)"]
         tableData = reportData.breakdownData.map((d: any) => [
             d.name,
@@ -143,9 +176,15 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
             d.revenue.toLocaleString(),
             d.profit.toLocaleString()
         ])
-    } else if (activeTab === "purchase-history" && Array.isArray(reportData)) {
+    } else if (activeTab === "purchase-history" && reportData.orders) {
+        nextY = addSummarySection("Purchase Overview", [
+            ["Total Purchase Value", `Rs. ${reportData.totalValue?.toLocaleString() || "0"}`],
+            ["Total Paid Amount", `Rs. ${reportData.totalPaid?.toLocaleString() || "0"}`],
+            ["Outstanding Dues", `Rs. ${reportData.outstandingDues?.toLocaleString() || "0"}`],
+        ])
+
         tableHeaders = ["Date", "Invoice", "Supplier", "Amount (Rs.)", "Status"]
-        tableData = reportData.map((o: any) => [
+        tableData = reportData.orders.map((o: any) => [
             o.purchase_date,
             o.invoice_number,
             o.suppliers?.supplier_name || "N/A",
@@ -153,6 +192,11 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
             o.status
         ])
     } else if (activeTab === "expense-breakdown" && reportData.expenses) {
+        nextY = addSummarySection("Expense Summary", [
+            ["Total Expenses", `Rs. ${reportData.totalExpenses?.toLocaleString() || "0"}`],
+            ["Number of Records", `${reportData.expenses.length}`],
+        ])
+
         tableHeaders = ["Date", "Category", "Amount (Rs.)", "Method", "Notes"]
         tableData = reportData.expenses.map((e: any) => [
             e.expense_date,
@@ -161,9 +205,15 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
             e.payment_method,
             e.description || ""
         ])
-    } else if (activeTab === "supplier-tracking" && Array.isArray(reportData)) {
+    } else if (activeTab === "supplier-tracking" && reportData.suppliers) {
+        nextY = addSummarySection("Supplier Position", [
+            ["Total Suppliers", `${reportData.totalSuppliers || 0}`],
+            ["Total Outstanding Dues", `Rs. ${reportData.totalOutstanding?.toLocaleString() || "0"}`],
+            ["Active Orders in Period", `${reportData.totalOrders || 0}`],
+        ])
+
         tableHeaders = ["Supplier", "Type", "Period Purchases", "Lifetime Total", "Outstanding Dues"]
-        tableData = reportData.map((s: any) => [
+        tableData = reportData.suppliers.map((s: any) => [
             s.supplier_name,
             s.supplier_type,
             s.periodPurchases.toLocaleString(),
@@ -172,18 +222,45 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
         ])
     } else if (activeTab === "profit-loss" && reportData) {
         // Custom P&L formatting
+        const body = [
+            ["Operating Revenue", ""],
+            ["  Fuel Sales", reportData.revFuel?.toLocaleString() || "0"],
+            ["  Product Sales", reportData.revProd?.toLocaleString() || "0"],
+            ["Total Revenue", reportData.totalRev?.toLocaleString() || "0"],
+            ["", ""],
+            ["Direct Costs (COGS)", ""],
+            ["  Opening Stock", reportData.openingStockValue?.toLocaleString() || "0"],
+            ["  Purchases", reportData.totalPurchases?.toLocaleString() || "0"],
+            ["  Closing Stock", `(${reportData.closingStockValue?.toLocaleString() || "0"})`],
+            ["Total Cost of Goods Sold", `(${reportData.cogs?.toLocaleString() || "0"})`],
+            ["", ""],
+            ["Gross Profit", reportData.grossProfit?.toLocaleString() || "0"],
+            ["", ""],
+            ["Operating Expenses", ""],
+            ["  General & Admin", `(${reportData.totalExp?.toLocaleString() || "0"})`],
+            ["", ""],
+            ["Net Profit", reportData.netProfit?.toLocaleString() || "0"],
+        ]
+
         autoTable(doc, {
             startY: 55,
             head: [["Category", "Amount (Rs.)"]],
-            body: [
-                ["Total Revenue", reportData.totalRevenue?.toLocaleString() || "0"],
-                ["Total Cost of Goods", reportData.totalCOG?.toLocaleString() || "0"],
-                ["Gross Profit", reportData.grossProfit?.toLocaleString() || "0"],
-                ["Total Expenses", reportData.totalExpenses?.toLocaleString() || "0"],
-                ["Net Profit", reportData.netProfit?.toLocaleString() || "0"],
-            ],
+            body: body,
             theme: 'striped',
             headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+            didParseCell: function (data) {
+                if (data.section === 'body' && (
+                    data.row.index === 0 ||
+                    data.row.index === 3 ||
+                    data.row.index === 5 ||
+                    data.row.index === 9 ||
+                    data.row.index === 11 ||
+                    data.row.index === 13 ||
+                    data.row.index === 16
+                )) {
+                    data.cell.styles.fontStyle = 'bold';
+                }
+            }
         })
         doc.save(`report-${activeTab}-${getTodayPKT()}.pdf`)
         return
@@ -191,7 +268,7 @@ function exportToPDF(activeTab: string, reportData: any, dateRangeStr: string, s
 
     if (tableHeaders.length > 0) {
         autoTable(doc, {
-            startY: 55,
+            startY: nextY,
             head: [tableHeaders],
             body: tableData,
             theme: 'striped',

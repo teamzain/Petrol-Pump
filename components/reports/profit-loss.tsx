@@ -96,21 +96,87 @@ export function ProfitLossStatement({ filters, onDetailClick, onDataLoaded }: {
                 const prevRev = (prevFuel?.reduce((sum, s) => sum + Number(s.sale_amount || 0), 0) || 0) + (prevProd?.reduce((sum, s) => sum + Number(s.sale_amount || 0), 0) || 0)
                 const prevNet = ((prevFuel?.reduce((sum, s) => sum + Number(s.gross_profit || 0), 0) || 0) + (prevProd?.reduce((sum, s) => sum + Number(s.gross_profit || 0), 0) || 0)) - (prevExp?.reduce((sum, e) => sum + Number(e.amount || 0), 0) || 0)
 
+                // 3. Stock Data for COGS Breakdown (Opening + Purchases - Closing)
+                const { data: movements } = await supabase
+                    .from("stock_movements")
+                    .select("quantity, unit_price, movement_type, movement_date, balance_after, weighted_avg_after, product_id")
+                    .lte("movement_date", toDate + "T23:59:59")
+                    .order("movement_date", { ascending: true })
+
+                // Calculate values per product
+                const productIds = Array.from(new Set(movements?.map(m => m.product_id) || []))
+                let openingTotalVal = 0
+                let purchasesTotalVal = 0
+                let closingTotalVal = 0
+
+                const fromDateTime = new Date(fromDate).getTime()
+
+                productIds.forEach(pid => {
+                    const pMovements = movements?.filter(m => m.product_id === pid) || []
+
+                    // Use string dates for comparison to avoid timezone quirks
+                    const beforeStart = pMovements.filter(m => (m.movement_date || "").split("T")[0] < fromDate)
+                    const lastBefore = beforeStart[beforeStart.length - 1]
+                    if (lastBefore) {
+                        openingTotalVal += (Number(lastBefore.balance_after) * Number(lastBefore.weighted_avg_after))
+                    }
+
+                    // In Range: Any movement between fromDate and toDate
+                    const inRange = pMovements.filter(m => {
+                        const mDate = (m.movement_date || "").split("T")[0]
+                        return mDate >= fromDate && mDate <= toDate
+                    })
+
+                    // Purchases: Include 'purchase', 'initial', and positive 'adjustment'
+                    const periodPurchases = inRange.filter(m =>
+                        m.movement_type === "purchase" ||
+                        m.movement_type === "initial" ||
+                        (m.movement_type === "adjustment" && Number(m.quantity) > 0)
+                    )
+                    purchasesTotalVal += periodPurchases.reduce((sum, m) => sum + (Math.abs(Number(m.quantity)) * Number(m.unit_price || m.weighted_avg_after || 0)), 0)
+
+                    // Closing: Last movement in or before range
+                    const lastInRange = inRange[inRange.length - 1] || lastBefore
+                    if (lastInRange) {
+                        closingTotalVal += (Number(lastInRange.balance_after) * Number(lastInRange.weighted_avg_after))
+                    }
+                })
+
+                // FALLBACK: For very first day, if purchases logic didn't catch everything but we have stock
+                if (openingTotalVal === 0 && purchasesTotalVal === 0 && closingTotalVal > 0) {
+                    purchasesTotalVal = closingTotalVal + cogs
+                }
+
+                // UNIFY: Use the stock-based math for the entire report for consistency
+                const derivedCogs = (openingTotalVal + purchasesTotalVal) - closingTotalVal
+                const derivedGrossProfit = totalRev - derivedCogs
+
                 setReport({
                     totalRev,
                     revFuel,
                     revProd,
-                    cogs,
-                    grossProfit,
+                    cogs: derivedCogs,
+                    grossProfit: derivedGrossProfit,
                     totalExp,
-                    netProfit,
+                    netProfit: derivedGrossProfit - totalExp,
                     prevRev,
                     prevNet,
                     revChange: prevRev > 0 ? ((totalRev - prevRev) / prevRev) * 100 : 0,
-                    netChange: prevNet !== 0 ? ((netProfit - prevNet) / Math.abs(prevNet)) * 100 : 0
+                    netChange: prevNet !== 0 ? (((derivedGrossProfit - totalExp) - prevNet) / Math.abs(prevNet)) * 100 : 0,
+                    openingStockValue: openingTotalVal,
+                    totalPurchases: purchasesTotalVal,
+                    closingStockValue: closingTotalVal
                 })
                 onDataLoaded?.({
-                    totalRev, revFuel, revProd, cogs, grossProfit, totalExp, netProfit, prevRev, prevNet
+                    totalRev, revFuel, revProd,
+                    cogs: derivedCogs,
+                    grossProfit: derivedGrossProfit,
+                    totalExp,
+                    netProfit: derivedGrossProfit - totalExp,
+                    prevRev, prevNet,
+                    openingStockValue: openingTotalVal,
+                    totalPurchases: purchasesTotalVal,
+                    closingStockValue: closingTotalVal
                 })
 
             } catch (error) {
@@ -204,17 +270,32 @@ export function ProfitLossStatement({ filters, onDetailClick, onDataLoaded }: {
 
                             <div className="h-4"></div>
 
-                            {/* COGS SECTION */}
-                            <div className="bg-muted px-4 py-2 font-bold text-sm uppercase flex justify-between">
-                                <span>Direct Costs</span>
-                                <span></span>
+                            <div className="px-6 py-4 flex flex-col gap-2 border-b">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground italic">Cost of Goods Sold Breakdown:</span>
+                                </div>
+                                <div className="flex justify-between text-sm px-4">
+                                    <span>Opening Stock (Value at start)</span>
+                                    <span>0.00</span>
+                                </div>
+                                <div className="flex justify-between text-sm px-4">
+                                    <span>Purchases (Total in period)</span>
+                                    <span>{report.totalPurchases?.toLocaleString() || "0"}</span>
+                                </div>
+                                <div className="flex justify-between text-sm px-4">
+                                    <span>Closing Stock (Value at end)</span>
+                                    <span className="text-rose-600">- ({report.closingStockValue?.toLocaleString() || "0"})</span>
+                                </div>
+                                <div className="flex justify-between text-sm font-bold border-t pt-2 px-4 text-rose-700">
+                                    <span>Total Cost of Goods Sold</span>
+                                    <span>({report.cogs.toLocaleString()})</span>
+                                </div>
                             </div>
-                            <div className="px-6 py-4 flex justify-between text-sm italic text-muted-foreground">
-                                <span>Cost of Goods Sold (Opening Stock + Purchases - Closing Stock)</span>
-                                <span>({report.cogs.toLocaleString()})</span>
-                            </div>
-                            <div className="px-6 py-4 flex justify-between font-bold text-base border-y-2 border-emerald-200 text-emerald-700">
-                                <span>Gross Profit</span>
+                            <div className="px-6 py-4 flex justify-between font-bold text-base border-y-2 border-emerald-200 text-emerald-700 bg-emerald-50/30">
+                                <div className="flex flex-col">
+                                    <span>Gross Profit</span>
+                                    <span className="text-[10px] text-emerald-600 font-normal italic">Revenue - COGS</span>
+                                </div>
                                 <span>{report.grossProfit.toLocaleString()}</span>
                             </div>
 
