@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
 import { getTodayPKT } from "@/lib/utils"
 import Link from "next/link"
-import { ArrowLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet } from "lucide-react"
+import { ArrowLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet, TrendingUp, HandCoins } from "lucide-react"
 import { BrandLoader } from "@/components/ui/brand-loader"
 
 import { Button } from "@/components/ui/button"
@@ -91,7 +91,9 @@ interface Sale {
   id: string
   product_id: string
   quantity: number
-  sale_amount: number // Corrected mapping
+  sale_amount: number
+  total_amount: number // New
+  paid_amount: number // New
   payment_method: string
   products: {
     product_name: string
@@ -126,6 +128,9 @@ export default function SalesPage() {
   const [newProductSale, setNewProductSale] = useState({
     product_id: "",
     quantity: "",
+    total_amount: "",
+    discount_amount: "0", // New
+    paid_amount: "",
     payment_method: "cash",
     bank_account_id: ""
   })
@@ -383,6 +388,8 @@ export default function SalesPage() {
             quantity: reading.liters_sold,
             selling_price: product.selling_price,
             sale_amount: reading.sales_amount,
+            total_amount: reading.sales_amount, // For consistency
+            paid_amount: reading.sales_amount,  // For consistency
             sale_type: "fuel",
             nozzle_id: nozzle.id,
             payment_method: reading.payment_method,
@@ -420,7 +427,8 @@ export default function SalesPage() {
       if (!product) return
 
       const qty = parseFloat(newProductSale.quantity)
-      const total = qty * product.selling_price
+      const totalAmount = parseFloat(newProductSale.total_amount)
+      const paidAmount = parseFloat(newProductSale.paid_amount) || totalAmount
 
       const recordedBy = (await supabase.auth.getUser()).data.user?.id
 
@@ -429,19 +437,29 @@ export default function SalesPage() {
         product_id: product.id,
         quantity: qty,
         selling_price: product.selling_price,
-        sale_amount: total,
+        sale_amount: paidAmount, // Map paid to sale_amount for financials
+        total_amount: totalAmount,
+        paid_amount: paidAmount,
         sale_type: "product",
         payment_method: newProductSale.payment_method === "bank" ? "bank_transfer" : "cash",
         bank_account_id: newProductSale.payment_method === "bank" ? newProductSale.bank_account_id : null,
         cogs_per_unit: product.weighted_avg_cost || product.purchase_price || 0,
         total_cogs: qty * (product.weighted_avg_cost || product.purchase_price || 0),
-        gross_profit: total - (qty * (product.weighted_avg_cost || product.purchase_price || 0)),
+        gross_profit: paidAmount - (qty * (product.weighted_avg_cost || product.purchase_price || 0)),
         recorded_by: recordedBy
       })
       if (sInsertError) throw sInsertError
 
       toast({ title: "Success", description: "Product sale added." })
-      setNewProductSale(prev => ({ ...prev, product_id: "", quantity: "" }))
+      setNewProductSale({
+        product_id: "",
+        quantity: "",
+        total_amount: "",
+        discount_amount: "0",
+        paid_amount: "",
+        payment_method: "cash",
+        bank_account_id: ""
+      })
       fetchData()
     } catch (err: any) {
       console.error(err)
@@ -495,26 +513,49 @@ export default function SalesPage() {
         </div>
       </div>
 
+      {/* Stats Row */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card className="p-4 flex flex-col gap-1 bg-primary/5 border-primary/10 shadow-sm">
+          <div className="flex items-center gap-2 text-primary">
+            <TrendingUp className="h-4 w-4" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Total Combined Sales</span>
+          </div>
+          <span className="text-2xl font-[900] tracking-tighter text-primary">
+            Rs. {(totalFuelAmount + totalProductAmount).toLocaleString()}
+          </span>
+        </Card>
+        <Card className="p-4 flex flex-col gap-1 shadow-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Fuel className="h-4 w-4" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Fuel Revenue</span>
+          </div>
+          <span className="text-2xl font-bold tracking-tighter">Rs. {totalFuelAmount.toLocaleString()}</span>
+          <p className="text-[10px] text-muted-foreground font-medium">{totalFuelLiters.toLocaleString()} Liters recorded today</p>
+        </Card>
+        <Card className="p-4 flex flex-col gap-1 shadow-sm">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Droplet className="h-4 w-4" />
+            <span className="text-[10px] uppercase font-bold tracking-wider">Lubricant & Others</span>
+          </div>
+          <span className="text-2xl font-bold tracking-tighter">Rs. {totalProductAmount.toLocaleString()}</span>
+          <p className="text-[10px] text-muted-foreground font-medium text-destructive">{productSales.length} items sold</p>
+        </Card>
+      </div>
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-          <TabsTrigger value="fuel">Fuel Sales</TabsTrigger>
-          <TabsTrigger value="products">Lubricants & Others</TabsTrigger>
+          <TabsTrigger value="fuel" className="font-bold flex items-center gap-2">
+            <Fuel className="h-4 w-4" />
+            Fuel Sales
+          </TabsTrigger>
+          <TabsTrigger value="products" className="font-bold flex items-center gap-2">
+            <Droplet className="h-4 w-4" />
+            Lubricants & Others
+          </TabsTrigger>
         </TabsList>
 
         {/* FUEL TAB */}
         <TabsContent value="fuel" className="space-y-6 mt-4">
-          {/* Stats Row */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card className="p-4 flex flex-col gap-1">
-              <span className="text-sm text-muted-foreground font-medium">Total Fuel Sales</span>
-              <span className="text-2xl font-bold">Rs. {totalFuelAmount.toLocaleString()}</span>
-            </Card>
-            <Card className="p-4 flex flex-col gap-1">
-              <span className="text-sm text-muted-foreground font-medium">Total Volume</span>
-              <span className="text-2xl font-bold">{totalFuelLiters.toLocaleString()} <span className="text-sm font-normal text-muted-foreground">Liters</span></span>
-            </Card>
-          </div>
-
           {/* Main Table Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -659,7 +700,17 @@ export default function SalesPage() {
                     <Input
                       type="number"
                       value={newProductSale.quantity}
-                      onChange={(e) => setNewProductSale(prev => ({ ...prev, quantity: e.target.value }))}
+                      onChange={(e) => {
+                        const qty = e.target.value;
+                        const product = oilProducts.find(p => p.id === newProductSale.product_id);
+                        const total = product ? (product.selling_price * parseFloat(qty || "0")).toString() : "0";
+                        setNewProductSale(prev => ({
+                          ...prev,
+                          quantity: qty,
+                          total_amount: total,
+                          paid_amount: total // Default paid to total
+                        }))
+                      }}
                       placeholder="0"
                       className={
                         newProductSale.product_id &&
@@ -674,6 +725,57 @@ export default function SalesPage() {
                           Exceeds available stock!
                         </p>
                       )}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Retail Total</Label>
+                      <Input
+                        type="number"
+                        value={newProductSale.total_amount}
+                        readOnly
+                        placeholder="0"
+                        className="bg-muted font-bold"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-destructive font-bold">Discount</Label>
+                      <Input
+                        type="number"
+                        value={newProductSale.discount_amount}
+                        onChange={(e) => {
+                          const discount = e.target.value;
+                          const total = parseFloat(newProductSale.total_amount || "0");
+                          const paid = (total - parseFloat(discount || "0")).toString();
+                          setNewProductSale(prev => ({
+                            ...prev,
+                            discount_amount: discount,
+                            paid_amount: paid
+                          }))
+                        }}
+                        placeholder="0"
+                        className="border-destructive/30"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-primary font-bold">Paid Amt</Label>
+                      <Input
+                        type="number"
+                        value={newProductSale.paid_amount}
+                        onChange={(e) => {
+                          const paid = e.target.value;
+                          const total = parseFloat(newProductSale.total_amount || "0");
+                          const discount = (total - parseFloat(paid || "0")).toString();
+                          setNewProductSale(prev => ({
+                            ...prev,
+                            paid_amount: paid,
+                            discount_amount: discount
+                          }))
+                        }}
+                        placeholder="0"
+                        className="border-primary focus-visible:ring-primary font-black"
+                      />
+                    </div>
                   </div>
                   <div className="space-y-4">
                     <div className="space-y-2">
@@ -714,6 +816,7 @@ export default function SalesPage() {
                       saving ||
                       !newProductSale.product_id ||
                       !newProductSale.quantity ||
+                      !newProductSale.paid_amount ||
                       (oilProducts.find(p => p.id === newProductSale.product_id)?.current_stock || 0) < parseFloat(newProductSale.quantity || "0")
                     }
                   >
@@ -735,20 +838,24 @@ export default function SalesPage() {
                       <TableRow>
                         <TableHead>Product</TableHead>
                         <TableHead className="text-right">Qty</TableHead>
-                        <TableHead className="text-right">Total</TableHead>
+                        <TableHead className="text-right">Retail</TableHead>
+                        <TableHead className="text-right text-destructive">Disc.</TableHead>
+                        <TableHead className="text-right">Paid</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {productSales.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={3} className="text-center text-muted-foreground h-24">No sales yet</TableCell>
+                          <TableCell colSpan={5} className="text-center text-muted-foreground h-24">No sales yet</TableCell>
                         </TableRow>
                       ) : (
                         productSales.map(sale => (
                           <TableRow key={sale.id}>
                             <TableCell className="font-medium">{sale.products?.product_name}</TableCell>
-                            <TableCell className="text-right">{sale.quantity}</TableCell>
-                            <TableCell className="text-right font-bold">Rs. {sale.sale_amount?.toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-medium">{sale.quantity}</TableCell>
+                            <TableCell className="text-right text-muted-foreground font-medium">Rs. {sale.total_amount?.toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-destructive font-medium">Rs. {(sale.total_amount - sale.paid_amount).toLocaleString()}</TableCell>
+                            <TableCell className="text-right font-bold text-primary">Rs. {sale.paid_amount?.toLocaleString()}</TableCell>
                           </TableRow>
                         ))
                       )}

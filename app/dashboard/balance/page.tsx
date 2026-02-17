@@ -29,7 +29,8 @@ import {
   Save,
   RefreshCw,
   ArrowRightLeft,
-  PlusCircle
+  PlusCircle,
+  Truck
 } from "lucide-react"
 import { BrandLoader as Loader, BrandLoader } from "@/components/ui/brand-loader"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -71,12 +72,19 @@ interface BankAccount {
   account_type: string
 }
 
+interface Supplier {
+  id: string
+  supplier_name: string
+  account_balance: number
+}
+
 export default function BalanceManagementPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [todayBalance, setTodayBalance] = useState<DailyBalance | null>(null)
   const [balanceHistory, setBalanceHistory] = useState<DailyBalance[]>([])
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [openingDialogOpen, setOpeningDialogOpen] = useState(false)
@@ -84,11 +92,12 @@ export default function BalanceManagementPage() {
 
   // Transaction State
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false)
-  const [transactionType, setTransactionType] = useState<"deposit" | "add_cash" | "add_bank" | "withdraw">("deposit")
+  const [transactionType, setTransactionType] = useState<"deposit" | "add_cash" | "add_bank" | "withdraw" | "transfer_to_supplier">("deposit")
   const [transactionData, setTransactionData] = useState({
     amount: "",
     description: "",
-    bankId: ""
+    bankId: "",
+    supplierId: ""
   })
 
   const [openingBalances, setOpeningBalances] = useState({
@@ -209,6 +218,17 @@ export default function BalanceManagementPage() {
 
     if (historyData) {
       setBalanceHistory(historyData)
+    }
+
+    // 5. Fetch Suppliers for fund transfer
+    const { data: supplierData } = await supabase
+      .from("suppliers")
+      .select("id, supplier_name, account_balance")
+      .eq("status", "active")
+      .order("supplier_name")
+
+    if (supplierData) {
+      setSuppliers(supplierData)
     }
 
     setLoading(false)
@@ -353,13 +373,25 @@ export default function BalanceManagementPage() {
         deposit: "Cash deposit to bank",
         withdraw: "Bank withdrawal to cash",
         add_cash: "Manual cash addition",
-        add_bank: "Manual bank balance addition"
+        add_bank: "Manual bank balance addition",
+        transfer_to_supplier: "Transfer to supplier account"
       }
 
-      const finalDescription = transactionData.description.trim() || defaultDescriptions[transactionType]
+      const supplier = transactionType === "transfer_to_supplier"
+        ? suppliers.find(s => s.id === transactionData.supplierId)
+        : null
 
-      if ((transactionType === "deposit" || transactionType === "add_bank" || transactionType === "withdraw") && !transactionData.bankId) {
+      const finalDescription = transactionData.description.trim() ||
+        (transactionType === "transfer_to_supplier" && supplier
+          ? `Transfer to supplier: ${supplier.supplier_name}`
+          : defaultDescriptions[transactionType])
+
+      if ((transactionType === "deposit" || transactionType === "withdraw" || transactionType === "add_bank") && !transactionData.bankId) {
         throw new Error("Please select a bank account")
+      }
+
+      if (transactionType === "transfer_to_supplier" && !transactionData.supplierId) {
+        throw new Error("Please select a supplier")
       }
 
       const user = await supabase.auth.getUser()
@@ -387,6 +419,10 @@ export default function BalanceManagementPage() {
         toAccount = cashAccountId
       } else if (transactionType === "add_bank") {
         toAccount = transactionData.bankId
+      } else if (transactionType === "transfer_to_supplier") {
+        txTypeStr = "transfer"
+        categoryStr = "supplier_transfer"
+        fromAccount = transactionData.bankId || cashAccountId
       }
 
       // 1. Log Transaction
@@ -399,13 +435,39 @@ export default function BalanceManagementPage() {
         from_account: fromAccount,
         to_account: toAccount,
         created_by: userId,
-        bank_account_id: (transactionType === "add_cash") ? null : transactionData.bankId
+        bank_account_id: (transactionType === "add_cash" || transactionType === "transfer_to_supplier") ? null : transactionData.bankId,
+        reference_type: transactionType === "transfer_to_supplier" ? 'supplier' : null,
+        reference_id: transactionType === "transfer_to_supplier" ? transactionData.supplierId : null
       })
       if (txError) throw txError
 
+      // 2. If transfer to supplier, update supplier balance
+      if (transactionType === "transfer_to_supplier") {
+        const { error: suppError } = await supabase.rpc('increment_supplier_balance', {
+          p_supplier_id: transactionData.supplierId,
+          p_amount: amount
+        });
+
+        // Fallback if RPC doesn't exist yet (though we should create it)
+        if (suppError) {
+          console.warn("RPC increment_supplier_balance failed, trying manual update", suppError);
+          const { data: currentSupp } = await supabase.from("suppliers").select("account_balance").eq("id", transactionData.supplierId).single();
+          const { error: manualError } = await supabase
+            .from("suppliers")
+            .update({ account_balance: (currentSupp?.account_balance || 0) + amount })
+            .eq("id", transactionData.supplierId);
+          if (manualError) throw manualError;
+        }
+      }
+
       setSuccess("Transaction recorded successfully!")
       setTransactionDialogOpen(false)
-      setTransactionData({ amount: "", description: "", bankId: bankAccounts.length > 0 ? bankAccounts[0].id : "" })
+      setTransactionData({
+        amount: "",
+        description: "",
+        bankId: bankAccounts.length > 0 ? bankAccounts[0].id : "",
+        supplierId: ""
+      })
       fetchBalances()
     } catch (err) {
       console.error(err)
@@ -465,6 +527,13 @@ export default function BalanceManagementPage() {
           <PlusCircle className="mr-2 h-4 w-4" />
           Add Balance
         </Button>
+        <Button variant="secondary" onClick={() => {
+          setTransactionType("transfer_to_supplier")
+          setTransactionDialogOpen(true)
+        }} className="w-full sm:w-auto">
+          <ArrowRightLeft className="mr-2 h-4 w-4" />
+          Transfer to Supplier
+        </Button>
       </div>
 
       {/* Current Balance Cards */}
@@ -515,10 +584,11 @@ export default function BalanceManagementPage() {
 
         <Card className="border-2 border-dashed flex flex-col items-center justify-center p-6 text-center bg-muted/30">
           <div className="p-3 rounded-full bg-background border shadow-sm mb-3">
-            <RefreshCw className="h-6 w-6 text-muted-foreground" />
+            <TrendingUp className="h-6 w-6 text-primary" />
           </div>
-          <h4 className="font-bold text-sm">Real-time Sync</h4>
-          <p className="text-[10px] text-muted-foreground px-4">Balances are automatically updated across all modules.</p>
+          <h4 className="font-bold text-sm">Total Supplier Balance</h4>
+          <p className="text-2xl font-black mt-1">{formatCurrency(suppliers.reduce((sum, s) => sum + (s.account_balance || 0), 0))}</p>
+          <p className="text-[10px] text-muted-foreground px-4 italic mt-2">Active prepaid balances across suppliers.</p>
         </Card>
       </div>
 
@@ -544,6 +614,38 @@ export default function BalanceManagementPage() {
           <div className="mt-4 pt-4 border-t flex justify-between items-center">
             <span className="text-sm font-bold text-muted-foreground">Total Bank Assets:</span>
             <span className="text-xl font-black text-primary">{formatCurrency(bankAccounts.reduce((sum, b) => sum + Number(b.current_balance), 0))}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="border-2 shadow-sm overflow-hidden">
+        <div className="h-1 bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400" />
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-lg font-medium flex items-center gap-2">
+            <Truck className="h-5 w-5 text-amber-600" />
+            Supplier Accounts Overview
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {suppliers.filter(s => (s.account_balance || 0) > 0).map(supplier => (
+              <div key={supplier.id} className="p-4 border rounded-xl bg-amber-500/[0.03] hover:bg-amber-500/[0.08] transition-colors border-amber-200/50">
+                <p className="text-xs font-bold text-muted-foreground uppercase">{supplier.supplier_name}</p>
+                <p className="text-xl font-black mt-1 text-amber-700">{formatCurrency(supplier.account_balance || 0)}</p>
+                <p className="text-[10px] text-muted-foreground mt-1 italic">Prepaid Company Account</p>
+              </div>
+            ))}
+            {suppliers.filter(s => (s.account_balance || 0) > 0).length === 0 && (
+              <div className="col-span-full py-10 text-center border-dashed border-2 rounded-xl">
+                <p className="text-sm text-muted-foreground italic">No active supplier balances found.</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-4 pt-4 border-t flex justify-between items-center">
+            <span className="text-sm font-bold text-muted-foreground">Total Prepaid Funds:</span>
+            <span className="text-xl font-black text-amber-600">
+              {formatCurrency(suppliers.reduce((sum, s) => sum + (s.account_balance || 0), 0))}
+            </span>
           </div>
         </CardContent>
       </Card>
@@ -830,24 +932,46 @@ export default function BalanceManagementPage() {
                   <SelectItem value="withdraw">🏧 Bank to Cash Withdrawal</SelectItem>
                   <SelectItem value="add_cash">💵 Add Manual Cash</SelectItem>
                   <SelectItem value="add_bank">🏦 Add Manual Bank Bal</SelectItem>
+                  <SelectItem value="transfer_to_supplier">🤝 Transfer to Supplier</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {(transactionType === "deposit" || transactionType === "withdraw" || transactionType === "add_bank") && (
+            {(transactionType === "deposit" || transactionType === "withdraw" || transactionType === "add_bank" || transactionType === "transfer_to_supplier") && (
               <div className="space-y-2 animate-in slide-in-from-top-2">
-                <Label>Select Bank Account</Label>
+                <Label>Select Bank Account {transactionType === "transfer_to_supplier" && "(Optional)"}</Label>
                 <Select
                   value={transactionData.bankId}
                   onValueChange={(v: string) => setTransactionData(prev => ({ ...prev, bankId: v }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Chose Bank..." />
+                    <SelectValue placeholder={transactionType === "transfer_to_supplier" ? "Default to Cash" : "Choose Bank..."} />
                   </SelectTrigger>
                   <SelectContent>
                     {bankAccounts.map(bank => (
                       <SelectItem key={bank.id} value={bank.id}>
                         {bank.account_name} ({formatCurrency(bank.current_balance)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {transactionType === "transfer_to_supplier" && (
+              <div className="space-y-2 animate-in slide-in-from-top-2">
+                <Label>Select Supplier</Label>
+                <Select
+                  value={transactionData.supplierId}
+                  onValueChange={(v: string) => setTransactionData(prev => ({ ...prev, supplierId: v }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chose Supplier..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {suppliers.map(supp => (
+                      <SelectItem key={supp.id} value={supp.id}>
+                        {supp.supplier_name} ({formatCurrency(supp.account_balance)})
                       </SelectItem>
                     ))}
                   </SelectContent>

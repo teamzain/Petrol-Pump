@@ -80,6 +80,7 @@ interface Account {
 export default function BalanceMovementsPage() {
     const [transactions, setTransactions] = useState<Transaction[]>([])
     const [accounts, setAccounts] = useState<Account[]>([])
+    const [suppliers, setSuppliers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [typeFilter, setTypeFilter] = useState("all")
     const [accountFilter, setAccountFilter] = useState("all")
@@ -116,6 +117,13 @@ export default function BalanceMovementsPage() {
                 .order("account_name")
 
             if (accData) setAccounts(accData)
+
+            // 1.5 Fetch Suppliers for mapping
+            const { data: suppData } = await supabase
+                .from("suppliers")
+                .select("id, supplier_name")
+
+            if (suppData) setSuppliers(suppData)
 
             // 2. Build Transaction Query
             let query = supabase
@@ -258,8 +266,33 @@ export default function BalanceMovementsPage() {
         fetchData()
     }, [fetchData])
 
-    const getAccountName = (id: string | null) => {
-        if (!id) return "-"
+    const getAccountName = (id: string | null, tx?: Transaction) => {
+        if (!id) {
+            const isSupplierTx =
+                tx?.category?.toLowerCase() === 'supplier_transfer' ||
+                tx?.description?.toLowerCase().includes('supplier') ||
+                tx?.reference_type?.toLowerCase() === 'supplier'
+
+            if (isSupplierTx) {
+                if (tx?.reference_id) {
+                    const supp = suppliers.find(s => s.id.toLowerCase() === tx.reference_id?.toLowerCase())
+                    if (supp) return supp.supplier_name
+                }
+
+                // Try to extract from description "Transfer to supplier: Name"
+                if (tx?.description?.includes(': ')) {
+                    const parts = tx.description.split(': ')
+                    if (parts.length > 1) return parts[1]
+                }
+
+                // Try to find any supplier name mentioned in description
+                const foundSupp = suppliers.find(s => tx?.description?.toLowerCase().includes(s.supplier_name.toLowerCase()))
+                if (foundSupp) return foundSupp.supplier_name
+
+                return "Supplier Account"
+            }
+            return "-"
+        }
         const acc = accounts.find(a => a.id === id)
         return acc ? acc.account_name : "Unknown Account"
     }
@@ -536,12 +569,12 @@ export default function BalanceMovementsPage() {
                                                 <TableCell>
                                                     {isTransfer ? (
                                                         <div className="text-xs flex flex-col gap-0.5">
-                                                            <span className="flex items-center gap-1"><ArrowDownRight className="h-3 w-3 text-destructive" /> {getAccountName(t.from_account)}</span>
-                                                            <span className="flex items-center gap-1"><ArrowUpRight className="h-3 w-3 text-primary" /> {getAccountName(t.to_account)}</span>
+                                                            <span className="flex items-center gap-1"><ArrowDownRight className="h-3 w-3 text-destructive" /> {getAccountName(t.from_account, t)}</span>
+                                                            <span className="flex items-center gap-1"><ArrowUpRight className="h-3 w-3 text-primary" /> {getAccountName(t.to_account, t)}</span>
                                                         </div>
                                                     ) : (
                                                         <span className="font-medium text-xs">
-                                                            {t.from_account ? getAccountName(t.from_account) : getAccountName(t.to_account)}
+                                                            {t.from_account ? getAccountName(t.from_account, t) : getAccountName(t.to_account, t)}
                                                         </span>
                                                     )}
                                                 </TableCell>

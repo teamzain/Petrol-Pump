@@ -36,6 +36,7 @@ type Supplier = {
   notes: string | null
   status: string
   total_purchases: number
+  account_balance: number
   last_purchase_date: string | null
   created_at: string
 }
@@ -154,6 +155,42 @@ export default function SuppliersPage() {
         </Button>
       </div>
 
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Suppliers</CardTitle>
+            <Truck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{suppliers.length}</div>
+            <p className="text-xs text-muted-foreground">{suppliers.filter(s => s.status === 'active').length} active vendors</p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-primary/[0.02] border-primary/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Prepaid Balance</CardTitle>
+            <Search className="h-4 w-4 text-primary" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">Rs. {suppliers.reduce((sum, s) => sum + (s.account_balance || 0), 0).toLocaleString("en-PK", { minimumFractionDigits: 2 })}</div>
+            <p className="text-xs text-muted-foreground">Total funds in company accounts</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">All Time Purchases</CardTitle>
+            <Truck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">Rs. {suppliers.reduce((sum, s) => sum + (s.total_purchases || 0), 0).toLocaleString("en-PK")}</div>
+            <p className="text-xs text-muted-foreground">Cumulative procurement value</p>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Filters */}
       <Card>
         <CardContent className="pt-6">
@@ -234,6 +271,7 @@ export default function SuppliersPage() {
                     <TableHead className="whitespace-nowrap">Supplier Name</TableHead>
                     <TableHead className="whitespace-nowrap">Contact</TableHead>
                     <TableHead className="whitespace-nowrap">Type</TableHead>
+                    <TableHead className="whitespace-nowrap">Account Balance</TableHead>
                     <TableHead className="whitespace-nowrap">Total Purchases</TableHead>
                     <TableHead className="whitespace-nowrap">Status</TableHead>
                     <TableHead className="text-right whitespace-nowrap">Actions</TableHead>
@@ -268,7 +306,10 @@ export default function SuppliersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        Rs. {supplier.total_purchases.toLocaleString("en-PK")}
+                        Rs. {(supplier.account_balance || 0).toLocaleString("en-PK", { minimumFractionDigits: 2 })}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">
+                        Rs. {(supplier.total_purchases || 0).toLocaleString("en-PK")}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
                         <Badge
@@ -319,6 +360,6 @@ export default function SuppliersPage() {
         title="Delete Supplier"
         description={`Are you sure you want to delete "${deleteSupplier?.supplier_name}"? This action cannot be undone.`}
       />
-    </div>
+    </div >
   )
 }

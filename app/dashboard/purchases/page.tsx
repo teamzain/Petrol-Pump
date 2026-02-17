@@ -45,6 +45,7 @@ interface PurchaseOrder {
   payment_method: string
   status: string
   notes: string | null
+  supplier_id: string
   suppliers: {
     supplier_name: string
     phone_number: string
@@ -55,6 +56,7 @@ interface PurchaseOrder {
     purchase_price_per_unit: number
     total_amount: number
     products: {
+      id: string
       product_name: string
       product_type: string
       unit: string
@@ -335,6 +337,7 @@ export default function PurchasesPage() {
           open={detailsDialogOpen}
           onOpenChange={setDetailsDialogOpen}
           order={selectedOrder}
+          onRefresh={fetchOrders}
         />
       )}
     </div>

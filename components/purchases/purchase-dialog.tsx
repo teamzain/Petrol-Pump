@@ -48,6 +48,7 @@ interface Supplier {
   id: string
   supplier_name: string
   supplier_type: string
+  account_balance: number
 }
 
 interface BankAccount {
@@ -94,7 +95,6 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
 
   // Data State
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [todayBalance, setTodayBalance] = useState<DailyBalance | null>(null)
 
@@ -109,11 +109,9 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   const [formData, setFormData] = useState({
     purchase_date: getTodayPKT(),
     supplier_id: "",
-    payment_method: "cash",
-    bank_account_id: "",
     invoice_number: "",
     notes: "",
-    paid_amount: "", // User input for amount paid
+    status: "hold", // Default to hold
   })
 
   // Item Input State
@@ -129,7 +127,6 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   useEffect(() => {
     if (open) {
       fetchSuppliers()
-      fetchBankAccounts()
       fetchProducts()
       fetchTodayBalance()
       resetForm()
@@ -143,11 +140,9 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
     setFormData({
       purchase_date: getTodayPKT(),
       supplier_id: "",
-      payment_method: "cash",
-      bank_account_id: "",
       invoice_number: `PO-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
       notes: "",
-      paid_amount: "",
+      status: "hold",
     })
     setCurrentItem({ product_id: "", quantity: "", unitPrice: "" })
     setSuccessData(null)
@@ -156,18 +151,8 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
 
 
   const fetchSuppliers = async () => {
-    const { data } = await supabase.from("suppliers").select("id, supplier_name, supplier_type").eq("status", "active").order("supplier_name")
+    const { data } = await supabase.from("suppliers").select("id, supplier_name, supplier_type, account_balance").eq("status", "active").order("supplier_name")
     if (data) setSuppliers(data)
-  }
-
-  const fetchBankAccounts = async () => {
-    const { data } = await supabase.from("accounts").select("id, account_name, account_number, current_balance").eq("account_type", "bank").eq("status", "active").order("account_name")
-    if (data) {
-      setBankAccounts(data)
-      if (data.length > 0) {
-        setFormData(prev => ({ ...prev, bank_account_id: data[0].id }))
-      }
-    }
   }
 
   const fetchProducts = async () => {
@@ -187,21 +172,6 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
 
   // --- Cart Calculations ---
   const orderTotal = cart.reduce((sum, item) => sum + item.total, 0)
-
-  // Auto-fill paid amount when total changes
-  useEffect(() => {
-    setFormData(prev => ({ ...prev, paid_amount: orderTotal.toString() }))
-  }, [orderTotal])
-
-  const paidAmount = parseFloat(formData.paid_amount) || 0
-  const dueAmount = orderTotal - paidAmount
-
-  const availableBalance = (() => {
-    if (!todayBalance) return 0
-    if (formData.payment_method === "cash") return Number(todayBalance.cash_closing ?? todayBalance.cash_opening ?? 0)
-    const selectedBank = bankAccounts.find(b => b.id === formData.bank_account_id)
-    return selectedBank ? Number(selectedBank.current_balance) : 0
-  })()
 
   // --- Handlers ---
 
@@ -242,7 +212,6 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
   const validateOrder = async (): Promise<string | null> => {
     if (!formData.purchase_date) return "Select purchase date"
     if (!formData.supplier_id) return "Select supplier"
-    if (formData.payment_method === "bank_transfer" && !formData.bank_account_id) return "Select a bank account"
     if (!formData.invoice_number.trim()) return "Enter invoice number"
     if (cart.length === 0) return "Add at least one product"
 
@@ -250,8 +219,23 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
     const { data: existing } = await supabase.from("purchase_orders").select("id").eq("invoice_number", formData.invoice_number.trim()).limit(1)
     if (existing && existing.length > 0) return `Invoice "${formData.invoice_number}" already exists`
 
-    if (paidAmount > availableBalance) {
-      return `Insufficient ${formData.payment_method} balance. Needed: ${paidAmount}, Available: ${availableBalance}`
+    // NEW: Check Supplier Available Balance
+    // Available = Supplier Account Balance - Sum(Hold/Scheduled Orders)
+    const { data: outstanding } = await supabase.rpc('get_supplier_available_balance', { p_supplier_id: formData.supplier_id });
+
+    // Fallback if RPC doesn't exist
+    let availableSuppBalance = 0;
+    if (outstanding !== undefined && outstanding !== null) {
+      availableSuppBalance = outstanding;
+    } else {
+      const selectedSupp = suppliers.find(s => s.id === formData.supplier_id);
+      const { data: orders } = await supabase.from("purchase_orders").select("total_amount").eq("supplier_id", formData.supplier_id).in("status", ["hold", "scheduled"]);
+      const outstandingSum = orders?.reduce((sum, o) => sum + Number(o.total_amount), 0) || 0;
+      availableSuppBalance = (selectedSupp?.account_balance || 0) - outstandingSum;
+    }
+
+    if (availableSuppBalance < orderTotal) {
+      return `Insufficient money in supplier account. Available: ${formatCurrency(availableSuppBalance)}, Required: ${formatCurrency(orderTotal)}. Please transfer funds to supplier account first.`;
     }
 
     return null
@@ -271,11 +255,11 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
         supplier_id: formData.supplier_id,
         invoice_number: formData.invoice_number.trim(),
         total_amount: orderTotal,
-        paid_amount: paidAmount,
-        due_amount: dueAmount,
-        payment_method: formData.payment_method,
-        bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
-        status: "completed",
+        paid_amount: orderTotal,
+        due_amount: 0,
+        payment_method: 'prepaid',
+        bank_account_id: null,
+        status: formData.status,
         notes: formData.notes
       }).select().single()
 
@@ -292,22 +276,24 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
           quantity: item.quantity,
           purchase_price_per_unit: item.unitPrice,
           total_amount: item.total,
-          payment_method: formData.payment_method,
-          bank_account_id: formData.payment_method === "bank_transfer" ? formData.bank_account_id : null,
+          payment_method: 'prepaid',
+          bank_account_id: null,
         })
 
-        // Update Product Stock & Price
-        const newStock = item.product.current_stock + item.quantity
-        const newValue = newStock * item.unitPrice
+        // Only update Product Stock & Price IF status is 'received'
+        if (formData.status === "received") {
+          const newStock = item.product.current_stock + item.quantity
+          const newValue = newStock * item.unitPrice
 
-        await supabase.from("products").update({
-          current_stock: newStock,
-          purchase_price: item.unitPrice,
-          weighted_avg_cost: item.unitPrice,
-          stock_value: newValue,
-          last_purchase_price: item.unitPrice,
-          last_purchase_date: formData.purchase_date
-        }).eq("id", item.product.id)
+          await supabase.from("products").update({
+            current_stock: newStock,
+            purchase_price: item.unitPrice,
+            weighted_avg_cost: item.unitPrice,
+            stock_value: newValue,
+            last_purchase_price: item.unitPrice,
+            last_purchase_date: formData.purchase_date
+          }).eq("id", item.product.id)
+        }
 
         // Stock Movement is now handled by database trigger (trg_universal_stock_purchases)
         // This prevents duplicate entries in the stock_movements table
@@ -318,14 +304,14 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
             product_id: item.product.id,
             old_purchase_price: item.product.purchase_price,
             new_purchase_price: item.unitPrice,
-            change_reason: `Purchase Price Update`
+            change_reason: `Purchase Price Update (Order: ${formData.status})`
           })
         }
       }
 
-
-      // 4. Update Supplier Totals
-      if (formData.supplier_id) {
+      // 3. Financial Impact is handled by database triggers based on status
+      // We only manually update supplier totals if the order is 'received'
+      if (formData.status === 'received' && formData.supplier_id) {
         const { data: s } = await supabase.from("suppliers").select("total_purchases").eq("id", formData.supplier_id).single()
         if (s) {
           await supabase.from("suppliers").update({
@@ -335,7 +321,7 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
         }
       }
 
-      setSuccessData({ total: orderTotal, paid: paidAmount, due: dueAmount, items: cart.length })
+      setSuccessData({ total: orderTotal, items: cart.length })
       setStep("success")
 
     } catch (err) {
@@ -377,7 +363,21 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
                   <Select value={formData.supplier_id} onValueChange={(v) => setFormData({ ...formData, supplier_id: v })}>
                     <SelectTrigger className="h-9 rounded-lg font-medium"><SelectValue placeholder="Select Supplier" /></SelectTrigger>
                     <SelectContent>
-                      {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name}</SelectItem>)}
+                      {suppliers.map(s => <SelectItem key={s.id} value={s.id}>{s.supplier_name} (Bal: {formatCurrency(s.account_balance)})</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Order Status</Label>
+                  <Select value={formData.status} onValueChange={(v) => setFormData({ ...formData, status: v })}>
+                    <SelectTrigger className="h-9 rounded-lg font-bold border-primary/20"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="hold">⏳ Hold</SelectItem>
+                      <SelectItem value="scheduled">📅 Scheduled</SelectItem>
+                      <SelectItem value="received">✅ Received</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -444,36 +444,9 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
                 </table>
               </div>
 
-              {/* Summary & Payment */}
+              {/* Summary & Note */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pt-6 mt-4 border-t">
                 <div className="space-y-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Payment Method</Label>
-                    <Select value={formData.payment_method} onValueChange={(v) => setFormData({ ...formData, payment_method: v })}>
-                      <SelectTrigger className="h-10 rounded-xl font-bold border-2"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">🏛️ Cash Account ({formatCurrency(Number(todayBalance?.cash_closing ?? todayBalance?.cash_opening ?? 0))})</SelectItem>
-                        <SelectItem value="bank_transfer">🏦 Bank Transfer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {formData.payment_method === "bank_transfer" && (
-                    <div className="space-y-1.5 animate-in slide-in-from-top-2">
-                      <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Select Bank Account</Label>
-                      <Select value={formData.bank_account_id || ""} onValueChange={(v) => setFormData({ ...formData, bank_account_id: v })}>
-                        <SelectTrigger className="h-10 rounded-xl font-bold border-2"><SelectValue placeholder="Chose Bank..." /></SelectTrigger>
-                        <SelectContent>
-                          {bankAccounts.map(bank => (
-                            <SelectItem key={bank.id} value={bank.id}>
-                              {bank.account_name} ({formatCurrency(bank.current_balance)})
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-
                   <div className="space-y-1.5">
                     <Label className="text-[10px] uppercase font-bold text-muted-foreground ml-1">Internal Notes</Label>
                     <Textarea rows={2} value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Shipping details, trailer #, etc..." className="resize-none rounded-xl bg-muted/30 focus-visible:ring-primary/30 text-xs" />
@@ -485,29 +458,14 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
 
                   <div className="flex justify-between items-end relative z-10">
                     <div className="space-y-0.5">
-                      <p className="text-[9px] uppercase font-black tracking-widest text-muted-foreground">Total Payable</p>
+                      <p className="text-[9px] uppercase font-black tracking-widest text-muted-foreground">Order Total</p>
                       <p className="font-black text-2xl tracking-tighter text-foreground">{formatCurrency(orderTotal)}</p>
                     </div>
                     <Badge variant="outline" className="rounded-full bg-background/50 h-5 px-2 text-[9px] font-bold uppercase border-muted-foreground/20">Tax Incl.</Badge>
                   </div>
 
-                  <div className="space-y-1.5 relative z-10">
-                    <div className="flex justify-between items-center px-1">
-                      <Label className="text-[10px] uppercase font-black text-green-700 tracking-tight">Payment Recieved</Label>
-                    </div>
-                    <div className="relative">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 h-7 w-7 bg-green-100 rounded-full flex items-center justify-center">
-                        <Banknote className="h-3.5 w-3.5 text-green-600" />
-                      </div>
-                      <Input type="number" className="h-12 pl-12 text-right text-xl font-black border-2 border-green-200 focus:border-green-500 bg-green-50/20 rounded-xl shadow-inner-sm transition-all focus:ring-0" value={formData.paid_amount} onChange={e => setFormData({ ...formData, paid_amount: e.target.value })} placeholder="0.00" />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-between items-center pt-1 px-1 relative z-10 border-t border-dashed border-muted-foreground/10 mt-1">
-                    <span className="font-black text-muted-foreground text-[10px] uppercase tracking-tighter">Balance Due</span>
-                    <span className={`text-2xl font-black tracking-tighter drop-shadow-sm ${dueAmount > 0 ? "text-destructive" : "text-green-600"}`}>
-                      {formatCurrency(dueAmount)}
-                    </span>
+                  <div className="pt-2 border-t border-dashed border-muted-foreground/10 mt-1">
+                    <p className="text-[10px] text-muted-foreground">Amount will be deducted from supplier prepaid account upon marking as <b>Received</b>.</p>
                   </div>
                 </div>
               </div>
@@ -543,10 +501,9 @@ export function PurchaseDialog({ open, onOpenChange, onSuccess }: PurchaseDialog
               <p className="text-muted-foreground px-12">The inventory has been updated and the transaction is saved to history.</p>
             </div>
 
-            <div className="grid grid-cols-3 gap-3 px-8">
+            <div className="grid grid-cols-2 gap-3 px-8">
               <div className="bg-muted/40 p-4 rounded-2xl border border-muted-foreground/10"><p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Total</p><p className="font-bold text-sm">{formatCurrency(successData.total)}</p></div>
-              <div className="bg-green-50 p-4 rounded-2xl border border-green-100"><p className="text-[10px] uppercase font-bold text-green-600 mb-1">Paid</p><p className="font-black text-sm text-green-700">{formatCurrency(successData.paid)}</p></div>
-              <div className="bg-red-50 p-4 rounded-2xl border border-red-100"><p className="text-[10px] uppercase font-bold text-destructive mb-1">Due</p><p className="font-black text-sm text-destructive">{formatCurrency(successData.due)}</p></div>
+              <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10"><p className="text-[10px] uppercase font-bold text-primary mb-1">Items</p><p className="font-black text-sm text-primary">{successData.items}</p></div>
             </div>
 
             <Button onClick={() => { onSuccess(); onOpenChange(false); }} className="rounded-full px-16 h-12 font-black uppercase tracking-widest bg-foreground text-background hover:bg-foreground/90 transition-all active:scale-95 shadow-2xl">Return to List</Button>
