@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
 import { getTodayPKT } from "@/lib/utils"
 import Link from "next/link"
-import { ArrowLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet, TrendingUp, HandCoins } from "lucide-react"
+import { ArrowLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet, TrendingUp, HandCoins, CreditCard } from "lucide-react"
 import { BrandLoader } from "@/components/ui/brand-loader"
 
 import { Button } from "@/components/ui/button"
@@ -92,12 +92,18 @@ interface Sale {
   product_id: string
   quantity: number
   sale_amount: number
-  total_amount: number // New
-  paid_amount: number // New
+  total_amount: number
+  paid_amount: number
   payment_method: string
   products: {
     product_name: string
   }
+}
+
+interface CardType {
+  id: string
+  card_name: string
+  tax_percentage: number
 }
 
 export default function SalesPage() {
@@ -135,6 +141,11 @@ export default function SalesPage() {
     bank_account_id: ""
   })
 
+  // Dynamic Daily Card Summary
+  const [activeCardTypes, setActiveCardTypes] = useState<CardType[]>([])
+  const [cardAmounts, setCardAmounts] = useState<Record<string, string>>({})
+  const [initialCardAmounts, setInitialCardAmounts] = useState<Record<string, string>>({})
+
   // Alerts
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
@@ -167,7 +178,10 @@ export default function SalesPage() {
 
       if (salesData) setProductSales(salesData)
 
-      // 4. Fetch System Config (Admin PIN)
+      // 4. Fetch System Config & Card Types
+      const { data: ctData } = await supabase.from("card_types").select("*").eq("is_active", true).order("card_name")
+      if (ctData) setActiveCardTypes(ctData)
+
       const { data: configData } = await supabase
         .from("pump_config")
         .select("admin_pin")
@@ -181,6 +195,9 @@ export default function SalesPage() {
       // Initialize readings state
       if (nozzlesData) {
         setNozzles(nozzlesData as Nozzle[])
+        let dailyShell = 0
+        let dailyBank = 0
+
         setNozzleReadings(nozzlesData.map(n => {
           const existing = readingsData?.find(r => r.nozzle_id === n.id)
           if (existing) {
@@ -192,7 +209,7 @@ export default function SalesPage() {
               liters_sold: existing.quantity_sold,
               sales_amount: existing.sale_amount,
               payment_method: existing.payment_method || "cash",
-              status: "saved" // If it exists, it's saved
+              status: "saved"
             }
           }
           return {
@@ -201,10 +218,25 @@ export default function SalesPage() {
             closing_reading: "",
             liters_sold: 0,
             sales_amount: 0,
-            payment_method: "cash", // Hardcoded to cash
+            payment_method: "cash",
             status: "pending"
           }
         }))
+
+        // Initialize Card Breakdown from the first saved reading
+        const readingWithCard = readingsData?.find(r => r.card_breakdown && Object.keys(r.card_breakdown).length > 0)
+        if (readingWithCard) {
+          const breakdown = readingWithCard.card_breakdown as Record<string, number>
+          const amounts: Record<string, string> = {}
+          Object.entries(breakdown).forEach(([id, amt]) => {
+            amounts[id] = amt.toString()
+          })
+          setCardAmounts(amounts)
+          setInitialCardAmounts(amounts)
+        } else {
+          setCardAmounts({})
+          setInitialCardAmounts({})
+        }
       }
 
       // 3. Fetch Oil Products
@@ -296,17 +328,63 @@ export default function SalesPage() {
     setSuccess("")
 
     try {
-      // Filter valid readings to save
-      // Logic: Must have liters > 0. Must be editable (no ID or unlocked).
+      // Logic for changes:
+      // 1. Meter readings changed?
+      // 2. Card totals changed?
+      const cardTotalsChanged = JSON.stringify(cardAmounts) !== JSON.stringify(initialCardAmounts)
+
       const readingsToSave = nozzleReadings.filter(r => {
         const hasChange = r.liters_sold > 0
         const isEditable = !r.id || unlockedNozzles.has(r.nozzle_id)
         return hasChange && isEditable
       })
 
-      if (readingsToSave.length === 0) {
-        toast({ title: "No changes", description: "No new valid readings to save." })
+      if (readingsToSave.length === 0 && !cardTotalsChanged) {
+        toast({ title: "No changes", description: "No new valid readings or card totals to save." })
         setSaving(false)
+        return
+      }
+
+      // Prepare card breakdown JSONB
+      const breakdown: Record<string, number> = {}
+      let totalCardAmt = 0
+      Object.entries(cardAmounts).forEach(([id, val]) => {
+        const amt = parseFloat(val) || 0
+        if (amt > 0) {
+          breakdown[id] = amt
+          totalCardAmt += amt
+        }
+      })
+
+      // If ONLY card totals changed, we need to apply them to an EXISTING reading
+      if (readingsToSave.length === 0 && cardTotalsChanged) {
+        const existingReading = nozzleReadings.find(r => r.id)
+        if (!existingReading) {
+          toast({ title: "Incomplete", description: "Please record at least one nozzle reading before saving card totals.", variant: "destructive" })
+          setSaving(false)
+          return
+        }
+
+        // Update the reading
+        const { error: nrErr } = await supabase.from("nozzle_readings").update({
+          total_card_amount: totalCardAmt,
+          card_breakdown: breakdown,
+          shell_card_amount: 0, // Reset legacy
+          bank_card_amount: 0   // Reset legacy
+        }).eq("id", existingReading.id)
+        if (nrErr) throw nrErr
+
+        // Update the sale
+        const { error: sErr } = await supabase.from("sales").update({
+          total_card_amount: totalCardAmt,
+          card_breakdown: breakdown,
+          shell_card_amount: 0,
+          bank_card_amount: 0
+        }).eq("nozzle_id", existingReading.nozzle_id).eq("sale_date", selectedDate).eq("sale_type", "fuel")
+        if (sErr) throw sErr
+
+        toast({ title: "Success", description: "Daily card totals updated." })
+        fetchData()
         return
       }
 
@@ -317,14 +395,24 @@ export default function SalesPage() {
         }
       }
 
-      for (const reading of readingsToSave) {
+      // Save card totals to the first reading (or create/update)
+      // Since we want to save "daily" totals, we just put them on the FIRST reading of the day.
+      // The trigger will handle the deduction from cash.
+      const firstReading = readingsToSave[0]
+      const otherReadings = readingsToSave.slice(1)
+
+      const saveReading = async (reading: any, isFirst: boolean) => {
         const nozzle = nozzles.find(n => n.id === reading.nozzle_id)
-        if (!nozzle) continue
+        if (!nozzle) return
 
         const closing = parseFloat(reading.closing_reading)
         const product = nozzle.products
         const user = await supabase.auth.getUser()
         const userId = user.data.user?.id
+
+        // Dynamic card breakdown only for the first reading
+        const finalTotalCard = isFirst ? totalCardAmt : 0
+        const finalBreakdown = isFirst ? breakdown : {}
 
         if (reading.id) {
           // Update Reading
@@ -334,6 +422,10 @@ export default function SalesPage() {
             sale_amount: reading.sales_amount,
             payment_method: reading.payment_method,
             bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
+            total_card_amount: finalTotalCard,
+            card_breakdown: finalBreakdown,
+            shell_card_amount: 0, // Clear legacy
+            bank_card_amount: 0
           }).eq("id", reading.id)
           if (nrUpdateError) throw nrUpdateError
 
@@ -350,6 +442,10 @@ export default function SalesPage() {
             sale_amount: fuelTotal,
             payment_method: reading.payment_method,
             bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
+            total_card_amount: finalTotalCard,
+            card_breakdown: finalBreakdown,
+            shell_card_amount: 0,
+            bank_card_amount: 0,
             cogs_per_unit: fuelCogsPerUnit,
             total_cogs: fuelTotalCogs,
             gross_profit: fuelGrossProfit,
@@ -371,6 +467,10 @@ export default function SalesPage() {
             sale_amount: total,
             payment_method: reading.payment_method,
             bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
+            total_card_amount: finalTotalCard,
+            card_breakdown: finalBreakdown,
+            shell_card_amount: 0,
+            bank_card_amount: 0,
             cogs_per_unit: nozzle.products.weighted_avg_cost || 0,
             total_cogs: qty * (nozzle.products.weighted_avg_cost || 0),
             gross_profit: total - (qty * (nozzle.products.weighted_avg_cost || 0)),
@@ -388,12 +488,16 @@ export default function SalesPage() {
             quantity: reading.liters_sold,
             selling_price: product.selling_price,
             sale_amount: reading.sales_amount,
-            total_amount: reading.sales_amount, // For consistency
-            paid_amount: reading.sales_amount,  // For consistency
+            total_amount: reading.sales_amount,
+            paid_amount: reading.sales_amount,
             sale_type: "fuel",
             nozzle_id: nozzle.id,
             payment_method: reading.payment_method,
             bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
+            total_card_amount: finalTotalCard,
+            card_breakdown: finalBreakdown,
+            shell_card_amount: 0,
+            bank_card_amount: 0,
             cogs_per_unit: fuelInsertCogsPerUnit,
             total_cogs: fuelInsertTotalCogs,
             gross_profit: fuelInsertGrossProfit,
@@ -405,6 +509,14 @@ export default function SalesPage() {
           const { error: nUpdateError } = await supabase.from("nozzles").update({ current_reading: closing }).eq("id", nozzle.id)
           if (nUpdateError) throw nUpdateError
         }
+      }
+
+      // Execute first reading save
+      await saveReading(firstReading, true)
+
+      // Execute others
+      for (const r of otherReadings) {
+        await saveReading(r, false)
       }
 
       toast({ title: "Success", description: "Sales recorded successfully." })
@@ -471,13 +583,15 @@ export default function SalesPage() {
     }
   }
 
-
   // --- Render Helpers ---
 
   const totalFuelLiters = nozzleReadings.reduce((sum, r) => sum + r.liters_sold, 0)
   const totalFuelAmount = nozzleReadings.reduce((sum, r) => sum + r.sales_amount, 0)
 
   const totalProductAmount = productSales.reduce((sum, s) => sum + s.sale_amount, 0)
+  const totalCardAmount = Object.values(cardAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
+  const totalCombinedSales = totalFuelAmount + totalProductAmount
+  const totalCashAmount = totalCombinedSales - totalCardAmount
 
   if (loading) {
     return (
@@ -518,27 +632,39 @@ export default function SalesPage() {
         <Card className="p-4 flex flex-col gap-1 bg-primary/5 border-primary/10 shadow-sm">
           <div className="flex items-center gap-2 text-primary">
             <TrendingUp className="h-4 w-4" />
-            <span className="text-[10px] uppercase font-bold tracking-wider">Total Combined Sales</span>
+            <span className="text-[10px] uppercase font-bold tracking-wider">Total Daily Sale</span>
           </div>
           <span className="text-2xl font-[900] tracking-tighter text-primary">
-            Rs. {(totalFuelAmount + totalProductAmount).toLocaleString()}
+            Rs. {totalCombinedSales.toLocaleString()}
           </span>
-        </Card>
-        <Card className="p-4 flex flex-col gap-1 shadow-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Fuel className="h-4 w-4" />
-            <span className="text-[10px] uppercase font-bold tracking-wider">Fuel Revenue</span>
+          <div className="flex flex-col gap-0.5 mt-1 border-t border-primary/10 pt-1">
+            <p className="text-[10px] text-muted-foreground font-medium flex justify-between">
+              <span>Fuel ({totalFuelLiters.toLocaleString()} L)</span>
+              <span className="font-bold text-primary/70">Rs. {totalFuelAmount.toLocaleString()}</span>
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium flex justify-between">
+              <span>Products</span>
+              <span className="font-bold text-primary/70">Rs. {totalProductAmount.toLocaleString()}</span>
+            </p>
           </div>
-          <span className="text-2xl font-bold tracking-tighter">Rs. {totalFuelAmount.toLocaleString()}</span>
-          <p className="text-[10px] text-muted-foreground font-medium">{totalFuelLiters.toLocaleString()} Liters recorded today</p>
         </Card>
-        <Card className="p-4 flex flex-col gap-1 shadow-sm">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Droplet className="h-4 w-4" />
-            <span className="text-[10px] uppercase font-bold tracking-wider">Lubricant & Others</span>
+
+        <Card className="p-4 flex flex-col gap-1 shadow-sm border-orange-100 bg-orange-50/30">
+          <div className="flex items-center gap-2 text-orange-600">
+            <CreditCard className="h-4 w-4" />
+            <span className="text-[10px] uppercase font-bold tracking-wider text-orange-600/70">Total Card Payments</span>
           </div>
-          <span className="text-2xl font-bold tracking-tighter">Rs. {totalProductAmount.toLocaleString()}</span>
-          <p className="text-[10px] text-muted-foreground font-medium text-destructive">{productSales.length} items sold</p>
+          <span className="text-2xl font-bold tracking-tighter text-orange-700">Rs. {totalCardAmount.toLocaleString()}</span>
+          <p className="text-[10px] text-orange-600/70 font-medium mt-1 uppercase tracking-tighter italic">Total dynamic card receipts</p>
+        </Card>
+
+        <Card className="p-4 flex flex-col gap-1 shadow-sm border-green-100 bg-green-50/30">
+          <div className="flex items-center gap-2 text-green-600">
+            <HandCoins className="h-4 w-4" />
+            <span className="text-[10px] uppercase font-bold tracking-wider text-green-600/70">Net Cash Sale</span>
+          </div>
+          <span className="text-2xl font-bold tracking-tighter text-green-700">Rs. {totalCashAmount.toLocaleString()}</span>
+          <p className="text-[10px] text-green-600/70 font-medium mt-1 uppercase tracking-tighter italic">Total Cash to be Deposited</p>
         </Card>
       </div>
 
@@ -556,6 +682,54 @@ export default function SalesPage() {
 
         {/* FUEL TAB */}
         <TabsContent value="fuel" className="space-y-6 mt-4">
+          {/* Daily Card Summary */}
+          <Card className="bg-slate-50 border-slate-200">
+            <CardHeader className="py-4">
+              <div className="flex items-center gap-2 text-slate-600">
+                <HandCoins className="h-4 w-4" />
+                <CardTitle className="text-sm font-bold uppercase tracking-wider">Daily Card Summary (Hold Payments)</CardTitle>
+              </div>
+              <CardDescription>Enter total card payments for the entire day. These will be deducted from cash sales.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-6 md:grid-cols-2">
+                {activeCardTypes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground italic col-span-2">No active card types found. Add them in Card Payments &gt; Card Settings.</p>
+                ) : (
+                  activeCardTypes.map(ct => (
+                    <div key={ct.id} className="space-y-2">
+                      <Label htmlFor={`card_${ct.id}`} className="flex items-center gap-2">
+                        {ct.card_name.toLowerCase().includes("shell") ? (
+                          <img src="https://www.shell.com.pk/etc.clientlibs/shell/clientlibs/clientlib-site/resources/resources/favicons/favicon-32x32.png" alt="S" className="h-4 w-4" />
+                        ) : <CreditCard className="h-4 w-4 text-slate-400" />}
+                        Total {ct.card_name} Payments
+                      </Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">Rs.</span>
+                        <Input
+                          id={`card_${ct.id}`}
+                          type="number"
+                          className="pl-12 font-bold text-lg border-2 focus-visible:ring-primary h-12"
+                          value={cardAmounts[ct.id] || ""}
+                          onChange={(e) => setCardAmounts(prev => ({ ...prev, [ct.id]: e.target.value }))}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+            <CardFooter className="bg-slate-100/50 py-3 flex justify-between">
+              <div className="text-xs text-muted-foreground font-medium">
+                Note: These amounts will be kept on "hold" until marked as received.
+              </div>
+              <div className="text-sm font-bold text-primary">
+                Total Deductions: Rs. {Object.values(cardAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toLocaleString()}
+              </div>
+            </CardFooter>
+          </Card>
+
           {/* Main Table Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">

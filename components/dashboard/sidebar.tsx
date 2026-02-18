@@ -28,6 +28,7 @@ import {
   Wallet,
   Gauge,
   Download,
+  CreditCard,
 } from "lucide-react"
 import { exportAllData } from "@/lib/backup"
 
@@ -61,6 +62,7 @@ const navItems: NavItem[] = [
   },
   { title: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart },
   { title: "Sales", href: "/dashboard/sales", icon: DollarSign },
+  { title: "Card Payments", href: "/dashboard/cards", icon: CreditCard },
   {
     title: "Balance",
     href: "/dashboard/balance",
