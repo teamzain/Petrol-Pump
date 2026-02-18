@@ -3,12 +3,13 @@
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
-import { getTodayPKT } from "@/lib/utils"
+import { getTodayPKT, cn } from "@/lib/utils"
 import Link from "next/link"
-import { ArrowLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet, TrendingUp, HandCoins, CreditCard } from "lucide-react"
+import { ArrowLeft, ArrowRightLeft, Calendar as CalendarIcon, Search, Save, Lock, Unlock, AlertTriangle, CheckCircle2, Fuel, Droplet, TrendingUp, HandCoins, CreditCard, Receipt } from "lucide-react"
 import { BrandLoader } from "@/components/ui/brand-loader"
 
 import { Button } from "@/components/ui/button"
+import { CardManagement } from "@/components/dashboard/card-management"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
@@ -145,6 +146,7 @@ export default function SalesPage() {
   const [activeCardTypes, setActiveCardTypes] = useState<CardType[]>([])
   const [cardAmounts, setCardAmounts] = useState<Record<string, string>>({})
   const [initialCardAmounts, setInitialCardAmounts] = useState<Record<string, string>>({})
+  const [cardSubTab, setCardSubTab] = useState<"totals" | "manage">("totals")
 
   // Alerts
   const [error, setError] = useState("")
@@ -297,7 +299,8 @@ export default function SalesPage() {
         closing_reading: value,
         liters_sold: liters,
         sales_amount: liters * sellingPrice,
-        status: r.id ? "saved" : "pending" // Naive status update
+        payment_method: "cash", // Always cash now
+        status: r.id ? "saved" : "pending"
       }
     }))
   }
@@ -328,63 +331,15 @@ export default function SalesPage() {
     setSuccess("")
 
     try {
-      // Logic for changes:
-      // 1. Meter readings changed?
-      // 2. Card totals changed?
-      const cardTotalsChanged = JSON.stringify(cardAmounts) !== JSON.stringify(initialCardAmounts)
-
       const readingsToSave = nozzleReadings.filter(r => {
         const hasChange = r.liters_sold > 0
         const isEditable = !r.id || unlockedNozzles.has(r.nozzle_id)
         return hasChange && isEditable
       })
 
-      if (readingsToSave.length === 0 && !cardTotalsChanged) {
-        toast({ title: "No changes", description: "No new valid readings or card totals to save." })
+      if (readingsToSave.length === 0) {
+        toast({ title: "No changes", description: "No new valid readings to save." })
         setSaving(false)
-        return
-      }
-
-      // Prepare card breakdown JSONB
-      const breakdown: Record<string, number> = {}
-      let totalCardAmt = 0
-      Object.entries(cardAmounts).forEach(([id, val]) => {
-        const amt = parseFloat(val) || 0
-        if (amt > 0) {
-          breakdown[id] = amt
-          totalCardAmt += amt
-        }
-      })
-
-      // If ONLY card totals changed, we need to apply them to an EXISTING reading
-      if (readingsToSave.length === 0 && cardTotalsChanged) {
-        const existingReading = nozzleReadings.find(r => r.id)
-        if (!existingReading) {
-          toast({ title: "Incomplete", description: "Please record at least one nozzle reading before saving card totals.", variant: "destructive" })
-          setSaving(false)
-          return
-        }
-
-        // Update the reading
-        const { error: nrErr } = await supabase.from("nozzle_readings").update({
-          total_card_amount: totalCardAmt,
-          card_breakdown: breakdown,
-          shell_card_amount: 0, // Reset legacy
-          bank_card_amount: 0   // Reset legacy
-        }).eq("id", existingReading.id)
-        if (nrErr) throw nrErr
-
-        // Update the sale
-        const { error: sErr } = await supabase.from("sales").update({
-          total_card_amount: totalCardAmt,
-          card_breakdown: breakdown,
-          shell_card_amount: 0,
-          bank_card_amount: 0
-        }).eq("nozzle_id", existingReading.nozzle_id).eq("sale_date", selectedDate).eq("sale_type", "fuel")
-        if (sErr) throw sErr
-
-        toast({ title: "Success", description: "Daily card totals updated." })
-        fetchData()
         return
       }
 
@@ -395,13 +350,7 @@ export default function SalesPage() {
         }
       }
 
-      // Save card totals to the first reading (or create/update)
-      // Since we want to save "daily" totals, we just put them on the FIRST reading of the day.
-      // The trigger will handle the deduction from cash.
-      const firstReading = readingsToSave[0]
-      const otherReadings = readingsToSave.slice(1)
-
-      const saveReading = async (reading: any, isFirst: boolean) => {
+      const saveReading = async (reading: any) => {
         const nozzle = nozzles.find(n => n.id === reading.nozzle_id)
         if (!nozzle) return
 
@@ -410,22 +359,15 @@ export default function SalesPage() {
         const user = await supabase.auth.getUser()
         const userId = user.data.user?.id
 
-        // Dynamic card breakdown only for the first reading
-        const finalTotalCard = isFirst ? totalCardAmt : 0
-        const finalBreakdown = isFirst ? breakdown : {}
-
         if (reading.id) {
           // Update Reading
           const { error: nrUpdateError } = await supabase.from("nozzle_readings").update({
             closing_reading: closing,
             quantity_sold: reading.liters_sold,
             sale_amount: reading.sales_amount,
-            payment_method: reading.payment_method,
-            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
-            total_card_amount: finalTotalCard,
-            card_breakdown: finalBreakdown,
-            shell_card_amount: 0, // Clear legacy
-            bank_card_amount: 0
+            payment_method: "cash",
+            bank_account_id: null,
+            recorded_by: userId
           }).eq("id", reading.id)
           if (nrUpdateError) throw nrUpdateError
 
@@ -440,12 +382,8 @@ export default function SalesPage() {
             quantity: fuelQty,
             selling_price: product.selling_price,
             sale_amount: fuelTotal,
-            payment_method: reading.payment_method,
-            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
-            total_card_amount: finalTotalCard,
-            card_breakdown: finalBreakdown,
-            shell_card_amount: 0,
-            bank_card_amount: 0,
+            payment_method: "cash",
+            bank_account_id: null,
             cogs_per_unit: fuelCogsPerUnit,
             total_cogs: fuelTotalCogs,
             gross_profit: fuelGrossProfit,
@@ -465,12 +403,8 @@ export default function SalesPage() {
             quantity_sold: qty,
             selling_price: nozzle.products.selling_price,
             sale_amount: total,
-            payment_method: reading.payment_method,
-            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
-            total_card_amount: finalTotalCard,
-            card_breakdown: finalBreakdown,
-            shell_card_amount: 0,
-            bank_card_amount: 0,
+            payment_method: "cash",
+            bank_account_id: null,
             cogs_per_unit: nozzle.products.weighted_avg_cost || 0,
             total_cogs: qty * (nozzle.products.weighted_avg_cost || 0),
             gross_profit: total - (qty * (nozzle.products.weighted_avg_cost || 0)),
@@ -492,12 +426,8 @@ export default function SalesPage() {
             paid_amount: reading.sales_amount,
             sale_type: "fuel",
             nozzle_id: nozzle.id,
-            payment_method: reading.payment_method,
-            bank_account_id: reading.payment_method === "bank" ? reading.bank_account_id : null,
-            total_card_amount: finalTotalCard,
-            card_breakdown: finalBreakdown,
-            shell_card_amount: 0,
-            bank_card_amount: 0,
+            payment_method: "cash",
+            bank_account_id: null,
             cogs_per_unit: fuelInsertCogsPerUnit,
             total_cogs: fuelInsertTotalCogs,
             gross_profit: fuelInsertGrossProfit,
@@ -511,19 +441,79 @@ export default function SalesPage() {
         }
       }
 
-      // Execute first reading save
-      await saveReading(firstReading, true)
-
-      // Execute others
-      for (const r of otherReadings) {
-        await saveReading(r, false)
+      for (const r of readingsToSave) {
+        await saveReading(r)
       }
 
-      toast({ title: "Success", description: "Sales recorded successfully." })
+      toast({ title: "Success", description: "Fuel sales recorded successfully." })
       fetchData()
     } catch (err: any) {
       console.error("Sale Recording Error:", err)
       const errorMsg = err.message || (err.error && err.error.message) || "Failed to save sales."
+      setError(errorMsg)
+      toast({ title: "Error", description: errorMsg, variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSubmitCardPayments = async () => {
+    setSaving(true)
+    setError("")
+    setSuccess("")
+
+    try {
+      const cardTotalsChanged = JSON.stringify(cardAmounts) !== JSON.stringify(initialCardAmounts)
+      if (!cardTotalsChanged) {
+        toast({ title: "No changes", description: "No card totals to save." })
+        setSaving(false)
+        return
+      }
+
+      // Prepare card breakdown JSONB
+      const breakdown: Record<string, number> = {}
+      let totalCardAmt = 0
+      Object.entries(cardAmounts).forEach(([id, val]) => {
+        const amt = parseFloat(val) || 0
+        if (amt > 0) {
+          breakdown[id] = amt
+          totalCardAmt += amt
+        }
+      })
+
+      // Find ANY reading for the day to attach card totals to (financial trigger requirement)
+      // If none, we might need a dummy or a specific logic.
+      // Current design attaches to one reading per day.
+      const existingReading = nozzleReadings.find(r => r.id)
+      if (!existingReading) {
+        toast({ title: "Incomplete", description: "Please record at least one nozzle reading before saving card totals.", variant: "destructive" })
+        setSaving(false)
+        return
+      }
+
+      // Update the reading
+      const { error: nrErr } = await supabase.from("nozzle_readings").update({
+        total_card_amount: totalCardAmt,
+        card_breakdown: breakdown,
+        shell_card_amount: 0,
+        bank_card_amount: 0
+      }).eq("id", existingReading.id)
+      if (nrErr) throw nrErr
+
+      // Update the sale record associated with that reading
+      const { error: sErr } = await supabase.from("sales").update({
+        total_card_amount: totalCardAmt,
+        card_breakdown: breakdown,
+        shell_card_amount: 0,
+        bank_card_amount: 0
+      }).eq("nozzle_id", existingReading.nozzle_id).eq("sale_date", selectedDate).eq("sale_type", "fuel")
+      if (sErr) throw sErr
+
+      toast({ title: "Success", description: "Daily card totals updated." })
+      fetchData()
+    } catch (err: any) {
+      console.error("Card Recording Error:", err)
+      const errorMsg = err.message || "Failed to save card payments."
       setError(errorMsg)
       toast({ title: "Error", description: errorMsg, variant: "destructive" })
     } finally {
@@ -589,9 +579,16 @@ export default function SalesPage() {
   const totalFuelAmount = nozzleReadings.reduce((sum, r) => sum + r.sales_amount, 0)
 
   const totalProductAmount = productSales.reduce((sum, s) => sum + s.sale_amount, 0)
+  const totalBankTransferAmount = productSales
+    .filter(s => s.payment_method === "bank_transfer")
+    .reduce((sum, s) => sum + s.sale_amount, 0)
+  const totalCashProductAmount = productSales
+    .filter(s => s.payment_method !== "bank_transfer")
+    .reduce((sum, s) => sum + s.sale_amount, 0)
+
   const totalCardAmount = Object.values(cardAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0)
   const totalCombinedSales = totalFuelAmount + totalProductAmount
-  const totalCashAmount = totalCombinedSales - totalCardAmount
+  const totalCashAmount = (totalFuelAmount + totalCashProductAmount) - totalCardAmount
 
   if (loading) {
     return (
@@ -628,7 +625,7 @@ export default function SalesPage() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="p-4 flex flex-col gap-1 bg-primary/5 border-primary/10 shadow-sm">
           <div className="flex items-center gap-2 text-primary">
             <TrendingUp className="h-4 w-4" />
@@ -658,6 +655,15 @@ export default function SalesPage() {
           <p className="text-[10px] text-orange-600/70 font-medium mt-1 uppercase tracking-tighter italic">Total dynamic card receipts</p>
         </Card>
 
+        <Card className="p-4 flex flex-col gap-1 shadow-sm border-blue-100 bg-blue-50/30">
+          <div className="flex items-center gap-2 text-blue-600">
+            <ArrowRightLeft className="h-4 w-4" />
+            <span className="text-[10px] uppercase font-bold tracking-wider text-blue-600/70">Bank Transfers</span>
+          </div>
+          <span className="text-2xl font-bold tracking-tighter text-blue-700">Rs. {totalBankTransferAmount.toLocaleString()}</span>
+          <p className="text-[10px] text-blue-600/70 font-medium mt-1 uppercase tracking-tighter italic">Lubricant Bank Receipts</p>
+        </Card>
+
         <Card className="p-4 flex flex-col gap-1 shadow-sm border-green-100 bg-green-50/30">
           <div className="flex items-center gap-2 text-green-600">
             <HandCoins className="h-4 w-4" />
@@ -669,7 +675,7 @@ export default function SalesPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full md:w-[400px] grid-cols-2">
+        <TabsList className="grid w-full md:w-[600px] grid-cols-3">
           <TabsTrigger value="fuel" className="font-bold flex items-center gap-2">
             <Fuel className="h-4 w-4" />
             Fuel Sales
@@ -678,58 +684,14 @@ export default function SalesPage() {
             <Droplet className="h-4 w-4" />
             Lubricants & Others
           </TabsTrigger>
+          <TabsTrigger value="cards" className="font-bold flex items-center gap-2">
+            <CreditCard className="h-4 w-4" />
+            Card Payments
+          </TabsTrigger>
         </TabsList>
 
         {/* FUEL TAB */}
         <TabsContent value="fuel" className="space-y-6 mt-4">
-          {/* Daily Card Summary */}
-          <Card className="bg-slate-50 border-slate-200">
-            <CardHeader className="py-4">
-              <div className="flex items-center gap-2 text-slate-600">
-                <HandCoins className="h-4 w-4" />
-                <CardTitle className="text-sm font-bold uppercase tracking-wider">Daily Card Summary (Hold Payments)</CardTitle>
-              </div>
-              <CardDescription>Enter total card payments for the entire day. These will be deducted from cash sales.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-6 md:grid-cols-2">
-                {activeCardTypes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground italic col-span-2">No active card types found. Add them in Card Payments &gt; Card Settings.</p>
-                ) : (
-                  activeCardTypes.map(ct => (
-                    <div key={ct.id} className="space-y-2">
-                      <Label htmlFor={`card_${ct.id}`} className="flex items-center gap-2">
-                        {ct.card_name.toLowerCase().includes("shell") ? (
-                          <img src="https://www.shell.com.pk/etc.clientlibs/shell/clientlibs/clientlib-site/resources/resources/favicons/favicon-32x32.png" alt="S" className="h-4 w-4" />
-                        ) : <CreditCard className="h-4 w-4 text-slate-400" />}
-                        Total {ct.card_name} Payments
-                      </Label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">Rs.</span>
-                        <Input
-                          id={`card_${ct.id}`}
-                          type="number"
-                          className="pl-12 font-bold text-lg border-2 focus-visible:ring-primary h-12"
-                          value={cardAmounts[ct.id] || ""}
-                          onChange={(e) => setCardAmounts(prev => ({ ...prev, [ct.id]: e.target.value }))}
-                          placeholder="0"
-                        />
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-            <CardFooter className="bg-slate-100/50 py-3 flex justify-between">
-              <div className="text-xs text-muted-foreground font-medium">
-                Note: These amounts will be kept on "hold" until marked as received.
-              </div>
-              <div className="text-sm font-bold text-primary">
-                Total Deductions: Rs. {Object.values(cardAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toLocaleString()}
-              </div>
-            </CardFooter>
-          </Card>
-
           {/* Main Table Card */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -1039,6 +1001,100 @@ export default function SalesPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* CARD PAYMENTS TAB */}
+        <TabsContent value="cards" className="space-y-6 mt-4">
+          <div className="flex bg-slate-100/80 p-1.5 rounded-xl w-full md:w-fit gap-1 mb-6 border border-slate-200 shadow-inner">
+            <button
+              onClick={() => setCardSubTab("totals")}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all duration-200 flex items-center justify-center gap-2 uppercase",
+                cardSubTab === "totals"
+                  ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/50"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+              )}
+            >
+              <Save className="w-3.5 h-3.5" />
+              Daily Entry
+            </button>
+            <button
+              onClick={() => setCardSubTab("manage")}
+              className={cn(
+                "flex-1 md:flex-none px-6 py-2.5 rounded-lg text-xs font-bold tracking-widest transition-all duration-200 flex items-center justify-center gap-2 uppercase",
+                cardSubTab === "manage"
+                  ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/50"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+              )}
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              Reconciliation
+            </button>
+          </div>
+
+          {cardSubTab === "totals" ? (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <Card className="bg-slate-50 border-slate-200">
+                <CardHeader className="py-4 flex flex-row items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <HandCoins className="h-4 w-4" />
+                      <CardTitle className="text-sm font-bold uppercase tracking-wider">Daily Card Summary (Hold Payments)</CardTitle>
+                    </div>
+                    <CardDescription>Enter total card payments for the entire day. These will be deducted from cash sales.</CardDescription>
+                  </div>
+                  <Button onClick={handleSubmitCardPayments} disabled={saving} className="min-w-[120px] bg-orange-600 hover:bg-orange-700">
+                    {saving ? (
+                      <BrandLoader size="xs" />
+                    ) : (
+                      <><Save className="mr-2 h-4 w-4" /> Save Cards</>
+                    )}
+                  </Button>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    {activeCardTypes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic col-span-2">No active card types found. Go to "RECONCILIATION" to add them.</p>
+                    ) : (
+                      activeCardTypes.map(ct => (
+                        <div key={ct.id} className="space-y-2">
+                          <Label htmlFor={`card_${ct.id}`} className="flex items-center gap-2">
+                            {ct.card_name.toLowerCase().includes("shell") ? (
+                              <img src="https://www.shell.com.pk/etc.clientlibs/shell/clientlibs/clientlib-site/resources/resources/favicons/favicon-32x32.png" alt="S" className="h-4 w-4" />
+                            ) : <CreditCard className="h-4 w-4 text-slate-400" />}
+                            Total {ct.card_name} Payments
+                          </Label>
+                          <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-bold">Rs.</span>
+                            <Input
+                              id={`card_${ct.id}`}
+                              type="number"
+                              className="pl-12 font-bold text-lg border-2 focus-visible:ring-primary h-12"
+                              value={cardAmounts[ct.id] || ""}
+                              onChange={(e) => setCardAmounts(prev => ({ ...prev, [ct.id]: e.target.value }))}
+                              placeholder="0"
+                            />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-slate-100/50 py-3 flex justify-between">
+                  <div className="text-xs text-muted-foreground font-medium">
+                    Note: These amounts will be kept on "hold" until marked as received.
+                  </div>
+                  <div className="text-sm font-bold text-primary">
+                    Total Deductions: Rs. {Object.values(cardAmounts).reduce((sum, val) => sum + (parseFloat(val) || 0), 0).toLocaleString()}
+                  </div>
+                </CardFooter>
+              </Card>
+            </div>
+          ) : (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <CardManagement />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 

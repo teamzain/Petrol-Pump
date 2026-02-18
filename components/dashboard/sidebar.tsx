@@ -62,7 +62,6 @@ const navItems: NavItem[] = [
   },
   { title: "Purchases", href: "/dashboard/purchases", icon: ShoppingCart },
   { title: "Sales", href: "/dashboard/sales", icon: DollarSign },
-  { title: "Card Payments", href: "/dashboard/cards", icon: CreditCard },
   {
     title: "Balance",
     href: "/dashboard/balance",

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import {
     CreditCard,
     Clock,
@@ -34,7 +35,6 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { BrandLoader } from "@/components/ui/brand-loader"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     Dialog,
     DialogContent,
@@ -52,6 +52,7 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 
 interface CardType {
     id: string
@@ -74,6 +75,7 @@ interface CardPayment {
     card_types: {
         card_name: string
     }
+    notes?: string
 }
 
 interface BankAccount {
@@ -83,7 +85,7 @@ interface BankAccount {
     current_balance: number
 }
 
-export default function CardsPage() {
+export function CardManagement() {
     const supabase = createClient()
     const { toast } = useToast()
 
@@ -106,6 +108,9 @@ export default function CardsPage() {
 
     const [newCardName, setNewCardName] = useState("")
     const [newCardTax, setNewCardTax] = useState("0")
+
+    const [manageTab, setManageTab] = useState<"hold" | "received">("hold")
+    const [receiveNote, setReceiveNote] = useState("")
 
     const fetchData = useCallback(async () => {
         setLoading(true)
@@ -156,7 +161,8 @@ export default function CardsPage() {
                 .update({
                     status: "received",
                     received_at: new Date().toISOString(),
-                    bank_account_id: targetAccountId
+                    bank_account_id: targetAccountId,
+                    notes: receiveNote
                 })
                 .eq("id", selectedPayment.id)
 
@@ -182,7 +188,7 @@ export default function CardsPage() {
                 transaction_date: new Date().toISOString(),
                 transaction_type: "income",
                 category: "sale",
-                description: `Card payment received: ${selectedPayment.card_types.card_name} (Net: Rs. ${selectedPayment.net_amount.toLocaleString()}, Tax: Rs. ${selectedPayment.tax_amount.toLocaleString()})`,
+                description: `Card payment received: ${selectedPayment.card_types.card_name} (Net: Rs. ${selectedPayment.net_amount.toLocaleString()}, Tax: Rs. ${selectedPayment.tax_amount.toLocaleString()})${receiveNote ? ` | Note: ${receiveNote}` : ""}`,
                 amount: selectedPayment.net_amount,
                 payment_method: "bank_transfer",
                 to_account: targetAccountId,
@@ -209,6 +215,7 @@ export default function CardsPage() {
 
             toast({ title: "Success", description: "Payment marked as received." })
             setReceiveDialogOpen(false)
+            setReceiveNote("") // Reset note
             fetchData()
         } catch (err) {
             console.error(err)
@@ -292,7 +299,7 @@ export default function CardsPage() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh]">
+            <div className="flex flex-col items-center justify-center min-h-[40vh]">
                 <BrandLoader size="lg" className="mb-4" />
                 <p className="text-muted-foreground animate-pulse font-medium">Loading card management...</p>
             </div>
@@ -301,82 +308,87 @@ export default function CardsPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Card Payments</h1>
-                    <p className="text-muted-foreground">Manage card hold status, taxes, and bank transfers.</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                <div className="flex bg-slate-100/80 p-1 rounded-lg w-full md:w-fit gap-1 border border-slate-200 shadow-inner">
+                    <button
+                        onClick={() => setManageTab("hold")}
+                        className={cn(
+                            "flex-1 md:flex-none px-5 py-1.5 rounded-md text-[10px] font-bold tracking-widest transition-all duration-200 flex items-center justify-center gap-2 uppercase",
+                            manageTab === "hold"
+                                ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/50"
+                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                        )}
+                    >
+                        <Clock className="w-3 h-3" />
+                        Pending
+                    </button>
+                    <button
+                        onClick={() => setManageTab("received")}
+                        className={cn(
+                            "flex-1 md:flex-none px-5 py-1.5 rounded-md text-[10px] font-bold tracking-widest transition-all duration-200 flex items-center justify-center gap-2 uppercase",
+                            manageTab === "received"
+                                ? "bg-white text-primary shadow-sm ring-1 ring-slate-200/50"
+                                : "text-slate-500 hover:text-slate-800 hover:bg-slate-200/50"
+                        )}
+                    >
+                        <CheckCircle2 className="w-3 h-3" />
+                        History
+                    </button>
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" onClick={() => setSettingsDialogOpen(true)}>
-                        <Settings className="mr-2 h-4 w-4" /> Card Settings
+                    <Button variant="outline" size="sm" onClick={() => setSettingsDialogOpen(true)} className="text-[10px] font-bold uppercase tracking-widest">
+                        <Settings className="mr-2 h-3.5 w-3.5" /> Card Settings
                     </Button>
                 </div>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
-                <Card className="bg-yellow-50/50 border-yellow-200 shadow-sm transition-all hover:bg-yellow-50">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider text-yellow-700">Total on Hold</CardTitle>
+                <Card className="bg-yellow-50/50 border-yellow-200 shadow-sm transition-all hover:bg-yellow-50 p-4">
+                    <div className="flex items-center justify-between pb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-yellow-700">Total on Hold</span>
                         <Clock className="h-4 w-4 text-yellow-700" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-black text-yellow-700">
-                            Rs. {holdPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
-                        </div>
-                        <p className="text-[10px] text-yellow-600 font-bold mt-1 uppercase">
-                            {holdPayments.length} Pending Payments
-                        </p>
-                    </CardContent>
+                    </div>
+                    <div className="text-2xl font-black text-yellow-700">
+                        Rs. {holdPayments.reduce((sum, p) => sum + p.amount, 0).toLocaleString()}
+                    </div>
+                    <p className="text-[10px] text-yellow-600 font-bold mt-1 uppercase">
+                        {holdPayments.length} Pending Payments
+                    </p>
                 </Card>
 
-                <Card className="bg-green-50/50 border-green-200 shadow-sm transition-all hover:bg-green-50">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider text-green-700">Net Received (20)</CardTitle>
+                <Card className="bg-green-50/50 border-green-200 shadow-sm transition-all hover:bg-green-50 p-4">
+                    <div className="flex items-center justify-between pb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-green-700">Net Received</span>
                         <CheckCircle2 className="h-4 w-4 text-green-700" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-black text-green-700">
-                            Rs. {receivedPayments.reduce((sum, p) => sum + p.net_amount, 0).toLocaleString()}
-                        </div>
-                        <p className="text-[10px] text-green-600 font-bold mt-1 uppercase">
-                            After tax deduction
-                        </p>
-                    </CardContent>
+                    </div>
+                    <div className="text-2xl font-black text-green-700">
+                        Rs. {receivedPayments.reduce((sum, p) => sum + p.net_amount, 0).toLocaleString()}
+                    </div>
+                    <p className="text-[10px] text-green-600 font-bold mt-1 uppercase">
+                        After tax deduction
+                    </p>
                 </Card>
 
-                <Card className="bg-slate-50 border-slate-200 shadow-sm transition-all hover:bg-slate-100">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                        <CardTitle className="text-sm font-bold uppercase tracking-wider text-slate-700">Total Tax Deducted</CardTitle>
+                <Card className="bg-slate-50 border-slate-200 shadow-sm transition-all hover:bg-slate-100 p-4">
+                    <div className="flex items-center justify-between pb-2">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-700">Total Tax Deducted</span>
                         <TrendingDown className="h-4 w-4 text-slate-700" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-black text-slate-700">
-                            Rs. {receivedPayments.reduce((sum, p) => sum + p.tax_amount, 0).toLocaleString()}
-                        </div>
-                        <p className="text-[10px] text-slate-600 font-bold mt-1 uppercase text-destructive italic">
-                            Company Commissions
-                        </p>
-                    </CardContent>
+                    </div>
+                    <div className="text-2xl font-black text-slate-700">
+                        Rs. {receivedPayments.reduce((sum, p) => sum + p.tax_amount, 0).toLocaleString()}
+                    </div>
+                    <p className="text-[10px] text-slate-600 font-bold mt-1 uppercase text-destructive italic">
+                        Company Commissions
+                    </p>
                 </Card>
             </div>
 
-            <Tabs defaultValue="hold" className="w-full">
-                <TabsList className="grid w-full md:w-[400px] grid-cols-2">
-                    <TabsTrigger value="hold" className="font-bold flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        Payments on Hold
-                    </TabsTrigger>
-                    <TabsTrigger value="received" className="font-bold flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" />
-                        Received History
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="hold" className="mt-4">
+            {manageTab === "hold" ? (
+                <div className="animate-in fade-in slide-in-from-right-2 duration-300">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Hold Payments (Daily Totals)</CardTitle>
-                            <CardDescription>Click mark as received to transfer funds and deduct tax.</CardDescription>
+                        <CardHeader className="py-4">
+                            <CardTitle className="text-sm font-bold uppercase tracking-wider">Hold Payments (Daily Totals)</CardTitle>
+                            <CardDescription className="text-xs">Click mark as received to transfer funds and deduct tax.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 sm:p-6">
                             <div className="overflow-x-auto">
@@ -435,13 +447,13 @@ export default function CardsPage() {
                             </div>
                         </CardContent>
                     </Card>
-                </TabsContent>
-
-                <TabsContent value="received" className="mt-4">
+                </div>
+            ) : (
+                <div className="animate-in fade-in slide-in-from-left-2 duration-300">
                     <Card>
-                        <CardHeader>
-                            <CardTitle>Recent Received Payments</CardTitle>
-                            <CardDescription>Successfully settled and transferred payments.</CardDescription>
+                        <CardHeader className="py-4">
+                            <CardTitle className="text-sm font-bold uppercase tracking-wider">Recent Received Payments</CardTitle>
+                            <CardDescription className="text-xs">Successfully settled and transferred payments.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-0 sm:p-6">
                             <div className="overflow-x-auto">
@@ -455,6 +467,7 @@ export default function CardsPage() {
                                             <TableHead className="text-right">Tax Paid</TableHead>
                                             <TableHead className="text-right">Net Amount</TableHead>
                                             <TableHead>Account</TableHead>
+                                            <TableHead>Notes</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -483,6 +496,11 @@ export default function CardsPage() {
                                                             {bankAccounts.find(ba => ba.id === p.bank_account_id)?.account_name || "Account"}
                                                         </div>
                                                     </TableCell>
+                                                    <TableCell className="max-w-[150px] truncate group">
+                                                        <span className="text-[10px] text-muted-foreground italic" title={p.notes}>
+                                                            {p.notes || "-"}
+                                                        </span>
+                                                    </TableCell>
                                                 </TableRow>
                                             ))
                                         )}
@@ -491,8 +509,8 @@ export default function CardsPage() {
                             </div>
                         </CardContent>
                     </Card>
-                </TabsContent>
-            </Tabs>
+                </div>
+            )}
 
             {/* Receive Dialog */}
             <Dialog open={receiveDialogOpen} onOpenChange={setReceiveDialogOpen}>
@@ -541,9 +559,18 @@ export default function CardsPage() {
                                         ))}
                                     </SelectContent>
                                 </Select>
-                                <p className="text-[10px] text-muted-foreground italic px-1 font-medium">
-                                    Select where you want to transfer Rs. {selectedPayment.net_amount.toLocaleString()}
-                                </p>
+                            </div>
+
+                            <div className="space-y-3 px-1">
+                                <Label className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+                                    <ArrowRight className="h-4 w-4 text-primary" /> Additional Note
+                                </Label>
+                                <Textarea
+                                    placeholder="Enter any details or bank reference..."
+                                    value={receiveNote}
+                                    onChange={(e) => setReceiveNote(e.target.value)}
+                                    className="resize-none"
+                                />
                             </div>
                         </div>
                     )}
@@ -564,7 +591,7 @@ export default function CardsPage() {
             <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
                 <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between pr-8">
                             <div>
                                 <DialogTitle>Card Type Settings</DialogTitle>
                                 <DialogDescription>Configure tax percentages for each card type.</DialogDescription>
@@ -693,9 +720,6 @@ export default function CardsPage() {
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">%</span>
                             </div>
-                            <p className="text-[10px] text-muted-foreground italic">
-                                This percentage will be deducted automatically when marking as received.
-                            </p>
                         </div>
                     </div>
                     <DialogFooter>
