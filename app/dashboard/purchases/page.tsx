@@ -109,8 +109,9 @@ export default function PurchasesPage() {
     const matchesType = filterType === "all" ||
       order.purchases?.some(p => p.products?.product_type === filterType)
 
-    // Status filter
+    // Status filter - now checks real order status field
     const matchesStatus = filterStatus === "all" ||
+      order.status === filterStatus ||
       (filterStatus === "paid" && Number(order.due_amount) <= 0) ||
       (filterStatus === "due" && Number(order.due_amount) > 0)
 
@@ -121,6 +122,21 @@ export default function PurchasesPage() {
   const totalPaid = filteredOrders.reduce((sum, o) => sum + Number(o.paid_amount), 0)
   const totalDue = filteredOrders.reduce((sum, o) => sum + Number(o.due_amount), 0)
   const uniqueSuppliers = new Set(orders.map(o => o.suppliers?.supplier_name)).size
+
+  const getStatusBadge = (status: string, dueAmount: number) => {
+    // Show order status (hold/scheduled) if it's pending
+    switch (status) {
+      case "hold": return <Badge className="bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50">⏳ Hold</Badge>
+      case "scheduled": return <Badge className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-50">📅 Scheduled</Badge>
+      case "received": return <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100">✅ Received</Badge>
+      case "cancelled": return <Badge variant="destructive">Cancelled</Badge>
+      default:
+        // Fall back to payment-based status for completed orders
+        return dueAmount > 0
+          ? <Badge variant="destructive">Partial/Due</Badge>
+          : <Badge className="bg-green-100 text-green-800 hover:bg-green-100">Cleared</Badge>
+    }
+  }
 
   const getPaymentBadge = (method: string) => {
     switch (method) {
@@ -247,6 +263,10 @@ export default function PurchasesPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="hold">⏳ Hold</SelectItem>
+                  <SelectItem value="scheduled">📅 Scheduled</SelectItem>
+                  <SelectItem value="received">✅ Received</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="due">Running Due</SelectItem>
                   <SelectItem value="paid">Fully Paid</SelectItem>
                 </SelectContent>
@@ -294,9 +314,7 @@ export default function PurchasesPage() {
                         {Number(order.due_amount) > 0 ? `Rs. ${Number(order.due_amount).toLocaleString()}` : "-"}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">
-                        <Badge variant={Number(order.due_amount) > 0 ? "destructive" : "default"}>
-                          {Number(order.due_amount) > 0 ? "Partial/Due" : "Cleared"}
-                        </Badge>
+                        {getStatusBadge(order.status, Number(order.due_amount))}
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
                         <Button

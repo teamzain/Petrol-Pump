@@ -65,8 +65,11 @@ interface Transaction {
     reference_type: string | null
     reference_id: string | null
     created_at: string
+    status?: 'hold' | 'scheduled' | 'received' | 'completed' | 'cancelled'
     running_cash?: number
     running_bank?: number
+    running_supplier?: number
+    running_card?: number
     running_total?: number
 }
 
@@ -118,10 +121,10 @@ export default function BalanceMovementsPage() {
 
             if (accData) setAccounts(accData)
 
-            // 1.5 Fetch Suppliers for mapping
+            // 1.5 Fetch Suppliers for mapping & balance
             const { data: suppData } = await supabase
                 .from("suppliers")
-                .select("id, supplier_name")
+                .select("id, supplier_name, account_balance")
 
             if (suppData) setSuppliers(suppData)
 
@@ -205,7 +208,9 @@ export default function BalanceMovementsPage() {
             // Calculate current total balances
             let currentCash = 0
             let currentBank = 0
-            if (!accData) {
+            let currentSupplier = 0
+
+            if (!accData || !suppData) {
                 setTransactions([])
                 return
             }
@@ -217,39 +222,89 @@ export default function BalanceMovementsPage() {
                 else if (acc.account_type === 'bank') currentBank += bal
             })
 
+            suppData.forEach(s => {
+                currentSupplier += Number(s.account_balance || 0)
+            })
+
+            // 1.6 Fetch Pending Card Payments for current card balance
+            const { data: cardData } = await supabase
+                .from("card_payments")
+                .select("amount")
+                .eq("status", "hold")
+
+            let currentCard = 0
+            // DO NOT add 'hold' or 'scheduled' payments to the starting card balance
+            // Only 'received' payments that might not have been settled yet (if any exist)
+            // But usually currentCard should start at 0 if everything is settled.
+
             const resultWithBalance = sorted.map(tx => {
                 const amount = Number(tx.amount)
                 const fromAccId = tx.from_account
                 const toAccId = tx.to_account
+                const isPrepaid = tx.payment_method === 'prepaid'
+                const isSupplierTransfer = tx.category === 'supplier_transfer' || tx.reference_type === 'supplier'
 
                 const fromAcc = accData.find(a => a.id === fromAccId)
                 const toAcc = accData.find(a => a.id === toAccId)
 
-                // Current state is stored in currentCash/currentBank
+                // Current state is stored in currentCash/currentBank/currentSupplier
                 const state = {
                     cash: currentCash,
                     bank: currentBank,
-                    total: currentCash + currentBank
+                    supplier: currentSupplier,
+                    card: currentCard,
+                    total: currentCash + currentBank + currentSupplier + currentCard
                 }
 
-                // Reverse the transaction to get the PREVIOUS state for the NEXT (older) iteration
-                if (tx.transaction_type === 'transfer') {
-                    if (fromAcc?.account_type === 'cash') currentCash += amount
-                    if (fromAcc?.account_type === 'bank') currentBank += amount
-                    if (toAcc?.account_type === 'cash') currentCash -= amount
-                    if (toAcc?.account_type === 'bank') currentBank -= amount
-                } else if (tx.transaction_type === 'income') {
-                    if (toAcc?.account_type === 'cash') currentCash -= amount
-                    if (toAcc?.account_type === 'bank') currentBank -= amount
-                } else if (tx.transaction_type === 'expense') {
-                    if (fromAcc?.account_type === 'cash') currentCash += amount
-                    if (fromAcc?.account_type === 'bank') currentBank += amount
+                const isFinal = tx.status === 'received' || tx.status === 'completed' || !tx.status
+
+                // Reverse the transaction only if it's FINALIZED
+                if (isFinal) {
+                    if (tx.transaction_type === 'transfer') {
+                        // Reverse deduction from source
+                        if (fromAcc?.account_type === 'cash') currentCash += amount
+                        if (fromAcc?.account_type === 'bank') currentBank += amount
+
+                        // Reverse addition to destination
+                        if (toAcc?.account_type === 'cash') currentCash -= amount
+                        if (toAcc?.account_type === 'bank') currentBank -= amount
+
+                        // Special case: Supplier Transfer
+                        if (isSupplierTransfer) {
+                            currentSupplier -= amount
+                        }
+                    } else if (tx.transaction_type === 'income') {
+                        if (toAcc?.account_type === 'cash') currentCash -= amount
+                        if (toAcc?.account_type === 'bank') currentBank -= amount
+
+                        // Logic for Card portion of sales
+                        if (tx.payment_method === 'card') {
+                            currentCard -= amount
+                        }
+                    } else if (tx.transaction_type === 'expense') {
+                        // Reverse deduction from source
+                        if (isPrepaid) {
+                            currentSupplier += amount
+                        } else if (tx.payment_method === 'card') {
+                            currentCard += amount
+                        } else {
+                            if (fromAcc?.account_type === 'cash') currentCash += amount
+                            if (fromAcc?.account_type === 'bank') currentBank += amount
+                        }
+                    }
+
+                    // Reverse the transfer impact on Card Balance for settlements
+                    if (tx.transaction_type === 'transfer' && tx.payment_method === 'card') {
+                        currentCard += amount
+                    }
                 }
 
                 return {
                     ...tx,
                     running_cash: state.cash,
                     running_bank: state.bank,
+                    running_supplier: state.supplier,
+                    running_card: state.card,
                     running_total: state.total
                 }
             })
@@ -268,10 +323,19 @@ export default function BalanceMovementsPage() {
 
     const getAccountName = (id: string | null, tx?: Transaction) => {
         if (!id) {
+            // SKIP if not received or completed
+            const isFinal = tx?.status === 'received' || tx?.status === 'completed' || !tx?.status
+            if (!isFinal) return "Pending"
+
             const isSupplierTx =
                 tx?.category?.toLowerCase() === 'supplier_transfer' ||
                 tx?.description?.toLowerCase().includes('supplier') ||
-                tx?.reference_type?.toLowerCase() === 'supplier'
+                tx?.reference_type?.toLowerCase() === 'supplier' ||
+                tx?.payment_method === 'prepaid'
+
+            if (tx?.payment_method === 'card') {
+                return "Card Receivable"
+            }
 
             if (isSupplierTx) {
                 if (tx?.reference_id) {
@@ -344,7 +408,7 @@ export default function BalanceMovementsPage() {
                     setDetailsData(purchase)
                     setIsDetailsOpen(true)
                 }
-            } else if (isSaleRef && tx.reference_id) {
+            } else if (!tx.payment_method?.includes('card') && isSaleRef && tx.reference_id) {
                 // Try nozzle_readings
                 const { data: reading } = await supabase
                     .from('nozzle_readings')
@@ -375,7 +439,7 @@ export default function BalanceMovementsPage() {
                 // Fallback if nothing found
                 setIsDetailsOpen(true)
 
-            } else if (isExpenseRef && tx.reference_id) {
+            } else if (!tx.payment_method?.includes('card') && isExpenseRef && tx.reference_id) {
                 const { data } = await supabase
                     .from('expenses')
                     .select('*, expense_categories(category_name), accounts(account_name, account_number)')
@@ -392,7 +456,7 @@ export default function BalanceMovementsPage() {
                 // Fallback
                 setIsDetailsOpen(true)
             } else {
-                // Unknown/Transfer
+                // Unknown/Transfer/Card Movement
                 setIsDetailsOpen(true)
             }
         } catch (err) {
@@ -512,6 +576,8 @@ export default function BalanceMovementsPage() {
                                     <TableHead className="text-right w-[120px]">Amount</TableHead>
                                     <TableHead className="text-right w-[100px]">Cash Bal</TableHead>
                                     <TableHead className="text-right w-[100px]">Bank Bal</TableHead>
+                                    <TableHead className="text-right w-[100px]">Card Bal</TableHead>
+                                    <TableHead className="text-right w-[100px]">Supplier Bal</TableHead>
                                     <TableHead className="text-right w-[120px]">Total Bal</TableHead>
                                     <TableHead className="w-[50px]"></TableHead>
                                 </TableRow>
@@ -519,7 +585,7 @@ export default function BalanceMovementsPage() {
                             <TableBody>
                                 {transactions.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
                                             No transactions found
                                         </TableCell>
                                     </TableRow>
@@ -528,12 +594,21 @@ export default function BalanceMovementsPage() {
                                         const isIncome = t.transaction_type === "income"
                                         const isExpense = t.transaction_type === "expense"
                                         const isTransfer = t.transaction_type === "transfer"
-                                        const isPurchase =
+                                        const isTax =
+                                            t.category?.toLowerCase() === 'tax' ||
+                                            t.description?.toLowerCase().includes('tax deducted') ||
+                                            t.category?.toLowerCase() === 'tax_deduction'
+
+                                        const isCard = t.payment_method === 'card'
+
+                                        const isPurchase = !isTax && !isCard && (
                                             t.category?.toLowerCase().includes('purchase') ||
                                             t.reference_type === 'purchase' ||
-                                            t.reference_type === 'purchase_order'
+                                            t.reference_type === 'purchase_order' ||
+                                            t.payment_method === 'prepaid'
+                                        )
 
-                                        const typeLabel = isPurchase ? "Purchase" : t.transaction_type
+                                        const typeLabel = isTax ? "Tax" : isPurchase ? "Purchase" : isCard ? "Card Movement" : t.transaction_type
 
                                         return (
                                             <TableRow key={t.id}>
@@ -548,22 +623,31 @@ export default function BalanceMovementsPage() {
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Badge variant={isIncome ? "secondary" : (isExpense || isPurchase) ? "outline" : "outline"}
-                                                        className={isIncome ? "bg-green-100 text-green-800 hover:bg-green-100" : (isExpense || isPurchase) ? "bg-red-50 text-red-700 hover:bg-red-50" : "bg-blue-50 text-blue-700 font-medium"}>
+                                                    <Badge variant={isIncome && !isCard ? "secondary" : (isExpense || isPurchase || isTax) ? "outline" : "outline"}
+                                                        className={isIncome && !isCard ? "bg-green-100 text-green-800 hover:bg-green-100" : (isExpense || isPurchase || isTax) ? "bg-red-50 text-red-700 hover:bg-red-50" : "bg-blue-50 text-blue-700 font-medium border-blue-200"}>
                                                         <span className="flex items-center gap-1">
-                                                            {isIncome && <TrendingUp className="h-3 w-3" />}
-                                                            {(isExpense || isPurchase) && <TrendingDown className="h-3 w-3" />}
-                                                            {isTransfer && <ArrowRightLeft className="h-3 w-3" />}
+                                                            {isIncome && !isCard && <TrendingUp className="h-3 w-3" />}
+                                                            {(isExpense || isPurchase || isTax) && <TrendingDown className="h-3 w-3" />}
+                                                            {(isTransfer || isCard) && <ArrowRightLeft className="h-3 w-3" />}
                                                             {typeLabel}
                                                         </span>
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex flex-col gap-0.5 max-w-[150px]">
-                                                        <div className="text-sm font-bold truncate" title={t.description}>{t.description}</div>
-                                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground overflow-hidden text-ellipsis">
-                                                            {t.category?.replace('_', ' ')}
-                                                        </span>
+                                                        <div className="text-sm font-bold truncate" title={t.description}>
+                                                            {isCard ? t.description.replace('Card Movement: ', '') : t.description}
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground overflow-hidden text-ellipsis">
+                                                                {t.category?.replace('_', ' ')}
+                                                            </span>
+                                                            {t.status && t.status !== 'completed' && t.status !== 'received' && (
+                                                                <Badge variant="outline" className="text-[8px] h-3 px-1 py-0 bg-amber-50 text-amber-600 border-amber-200">
+                                                                    {t.status.toUpperCase()}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
@@ -584,13 +668,19 @@ export default function BalanceMovementsPage() {
                                                         {formatCurrency(t.amount)}
                                                     </span>
                                                 </TableCell>
-                                                <TableCell className="text-right font-mono text-xs text-muted-foreground bg-muted/5 whitespace-nowrap">
+                                                <TableCell className="text-right font-mono text-[10px] text-muted-foreground bg-muted/5 whitespace-nowrap">
                                                     {formatCurrency(t.running_cash || 0)}
                                                 </TableCell>
-                                                <TableCell className="text-right font-mono text-xs text-muted-foreground bg-muted/5 whitespace-nowrap">
+                                                <TableCell className="text-right font-mono text-[10px] text-muted-foreground bg-muted/5 whitespace-nowrap border-x">
                                                     {formatCurrency(t.running_bank || 0)}
                                                 </TableCell>
-                                                <TableCell className="text-right font-mono text-sm font-bold text-foreground whitespace-nowrap">
+                                                <TableCell className="text-right font-mono text-[10px] text-blue-600 bg-blue-50/10 whitespace-nowrap border-r">
+                                                    {formatCurrency(t.running_card || 0)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-[10px] text-orange-600 bg-orange-50/10 whitespace-nowrap">
+                                                    {formatCurrency(t.running_supplier || 0)}
+                                                </TableCell>
+                                                <TableCell className="text-right font-mono text-sm font-bold text-foreground whitespace-nowrap border-l">
                                                     {formatCurrency(t.running_total || 0)}
                                                 </TableCell>
                                                 <TableCell>
